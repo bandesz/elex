@@ -97,23 +97,25 @@ defmodule Elex.Validator do
           |> Enum.map(fn {{_fun, arity}, _} -> arity end)
           |> Enum.sort()
 
-        if !Enum.empty?(arities) do
-          case arities do
-            [0] -> {:error, "#{name} function expects no arguments"}
-            [1] -> {:error, "#{name} function expects 1 argument"}
-            _ -> {:error, "#{name} function expects #{join_with_or(arities)} arguments"}
-          end
-        else
-          {:error, "unknown function #{name}/#{arity}"}
-        end
+        build_function_error(name, arity, arities)
     end
   end
 
-  defp join_with_or([single]), do: single
+  defp build_function_error(name, arity, []), do: {:error, "unknown function #{name}/#{arity}"}
+
+  defp build_function_error(name, _arity, arities) do
+    case arities do
+      [0] -> {:error, "#{name} function expects no arguments"}
+      [1] -> {:error, "#{name} function expects 1 argument"}
+      _ -> {:error, "#{name} function expects #{join_with_or(arities)} arguments"}
+    end
+  end
+
+  defp join_with_or([single]), do: to_string(single)
 
   defp join_with_or(list) when is_list(list) do
     {init, [last]} = Enum.split(list, -1)
-    Enum.join(init, ", ") <> " or " <> last
+    Enum.join(init, ", ") <> " or " <> to_string(last)
   end
 
   defp validate_decimal_op(op, a, b, ctx) do

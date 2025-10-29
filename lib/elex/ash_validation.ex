@@ -14,35 +14,43 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
 
     @impl true
     def init(opts) do
-      attribute = Keyword.get(opts, :attribute)
-      context = Keyword.get(opts, :context)
-      expected_type = Keyword.get(opts, :expected_type)
-      add_value_type_from_attribute = Keyword.get(opts, :add_value_type_from_attribute)
+      with {:ok, _} <- validate_attribute_option(opts),
+           {:ok, _} <- validate_context_option(opts),
+           {:ok, _} <- validate_expected_type_option(opts),
+           {:ok, _} <- validate_add_value_type_option(opts) do
+        {:ok, opts}
+      end
+    end
 
-      cond do
-        is_nil(attribute) ->
-          {:error, "the :attribute option is required"}
+    defp validate_attribute_option(opts) do
+      case Keyword.get(opts, :attribute) do
+        nil -> {:error, "the :attribute option is required"}
+        attr when is_atom(attr) -> {:ok, attr}
+        _ -> {:error, "the :attribute option must be an atom"}
+      end
+    end
 
-        not is_atom(attribute) ->
-          {:error, "the :attribute option must be an atom"}
+    defp validate_context_option(opts) do
+      case Keyword.get(opts, :context) do
+        nil -> {:error, "the :context option is required"}
+        %Elex.Context{} = ctx -> {:ok, ctx}
+        _ -> {:error, "the :context option must be a Elex.Context struct"}
+      end
+    end
 
-        is_nil(context) ->
-          {:error, "the :context option is required"}
+    defp validate_expected_type_option(opts) do
+      case Keyword.get(opts, :expected_type) do
+        nil -> {:error, "the :expected_type option is required"}
+        type when is_atom(type) -> {:ok, type}
+        _ -> {:error, "the :expected_type option must be an atom"}
+      end
+    end
 
-        not is_struct(context, Elex.Context) ->
-          {:error, "the :context option must be a Elex.Context struct"}
-
-        is_nil(expected_type) ->
-          {:error, "the :expected_type option is required"}
-
-        not is_atom(expected_type) ->
-          {:error, "the :expected_type option must be an atom"}
-
-        add_value_type_from_attribute && not is_atom(add_value_type_from_attribute) ->
-          {:error, "the :add_value_type_from_attribute option must be an atom"}
-
-        true ->
-          {:ok, opts}
+    defp validate_add_value_type_option(opts) do
+      case Keyword.get(opts, :add_value_type_from_attribute) do
+        nil -> {:ok, nil}
+        attr when is_atom(attr) -> {:ok, attr}
+        _ -> {:error, "the :add_value_type_from_attribute option must be an atom"}
       end
     end
 

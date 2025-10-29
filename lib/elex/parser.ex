@@ -225,14 +225,7 @@ defmodule Elex.Parser do
 
     case do_parse(expression) do
       {:ok, [ast], "", _, _, _} ->
-        if validate? do
-          case Validator.validate(ast, context) do
-            {:ok, type} -> {:ok, ast, type}
-            {:error, reason} -> {:error, reason}
-          end
-        else
-          {:ok, ast, nil}
-        end
+        validate_or_return_ast(ast, context, validate?)
 
       {:error, reason, _rest, _, {line, _col}, _byte_offset} ->
         {:error, "Parse error at line #{line}: #{reason}"}
@@ -241,4 +234,13 @@ defmodule Elex.Parser do
         {:error, "Parse error: #{reason}"}
     end
   end
+
+  defp validate_or_return_ast(ast, context, true) do
+    case Validator.validate(ast, context) do
+      {:ok, type} -> {:ok, ast, type}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_or_return_ast(ast, _context, false), do: {:ok, ast, nil}
 end
