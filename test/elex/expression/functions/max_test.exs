@@ -52,7 +52,16 @@ defmodule Elex.Functions.MaxTest do
     end
 
     test "wrong number of arguments" do
-      assert {:error, "max function expects 2 arguments"} = parse("max(3)")
+      assert {:error, "max function expects 2 arguments"} = parse("max(5)")
+    end
+  end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.Max.documentation()
+      assert is_map(doc)
+      assert doc.signature == "max(a, b)"
+      assert is_binary(doc.description)
     end
   end
 end

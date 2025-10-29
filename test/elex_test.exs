@@ -2,6 +2,189 @@ defmodule ElexTest do
   use ExUnit.Case, async: true
 
   alias Elex
+  alias Elex.Variable
+
+  describe "new_context/0" do
+    test "creates a context with no variables" do
+      ctx = Elex.new_context()
+      assert ctx.variables == %{}
+      assert is_map(ctx.functions)
+      # Should have standard functions registered
+      assert map_size(ctx.functions) > 0
+    end
+  end
+
+  describe "new_context/1" do
+    test "creates a context with provided variables" do
+      vars = %{
+        "x" => %Variable{value: Decimal.new("10"), type: :decimal},
+        "y" => %Variable{value: Decimal.new("20"), type: :decimal}
+      }
+
+      ctx = Elex.new_context(vars)
+      assert ctx.variables == vars
+      assert map_size(ctx.functions) > 0
+    end
+  end
+
+  describe "evaluate/2" do
+    test "evaluates simple arithmetic expression" do
+      ctx = Elex.new_context()
+      assert {:ok, result} = Elex.evaluate("5 + 3", ctx)
+      assert Decimal.equal?(result, Decimal.new("8"))
+    end
+
+    test "evaluates expression with variables" do
+      ctx =
+        Elex.new_context()
+        |> Elex.add_variable("x", 10)
+        |> Elex.add_variable("y", 5)
+
+      assert {:ok, result} = Elex.evaluate("x + y", ctx)
+      assert Decimal.equal?(result, Decimal.new("15"))
+    end
+
+    test "evaluates expression with functions" do
+      ctx = Elex.new_context()
+      assert {:ok, result} = Elex.evaluate("max(10, 20)", ctx)
+      assert Decimal.equal?(result, Decimal.new("20"))
+    end
+
+    test "returns error for invalid expression" do
+      ctx = Elex.new_context()
+      assert {:error, _reason} = Elex.evaluate("invalid +", ctx)
+    end
+
+    test "returns error for undefined variable" do
+      ctx = Elex.new_context()
+      assert {:error, _reason} = Elex.evaluate("undefined_var + 5", ctx)
+    end
+
+    test "handles runtime errors" do
+      ctx = Elex.new_context()
+      # Division by zero raises Decimal.Error, not caught by evaluate
+      # This test verifies that Decimal errors propagate
+      assert_raise Decimal.Error, fn ->
+        Elex.evaluate("10 / 0", ctx)
+      end
+    end
+  end
+
+  describe "validate/2" do
+    test "validates simple expression and returns type" do
+      ctx = Elex.new_context()
+      assert {:ok, :decimal} = Elex.validate("5 + 3", ctx)
+    end
+
+    test "validates boolean expression" do
+      ctx = Elex.new_context()
+      assert {:ok, :boolean} = Elex.validate("5 > 3", ctx)
+    end
+
+    test "validates string expression" do
+      ctx = Elex.new_context()
+      assert {:ok, :string} = Elex.validate(~s["hello"], ctx)
+    end
+
+    test "returns error for invalid expression" do
+      ctx = Elex.new_context()
+      assert {:error, _reason} = Elex.validate("invalid +", ctx)
+    end
+
+    test "validates expression with variables" do
+      ctx =
+        Elex.new_context()
+        |> Elex.add_variable("x", 10)
+
+      assert {:ok, :decimal} = Elex.validate("x + 5", ctx)
+    end
+  end
+
+  describe "add_variable/3" do
+    test "adds decimal variable from integer" do
+      ctx = Elex.new_context()
+      ctx = Elex.add_variable(ctx, "x", 42)
+
+      assert %Variable{value: value, type: :decimal} = ctx.variables["x"]
+      assert value == 42
+    end
+
+    test "adds decimal variable from float" do
+      ctx = Elex.new_context()
+      ctx = Elex.add_variable(ctx, "x", 3.14)
+
+      assert %Variable{value: value, type: :decimal} = ctx.variables["x"]
+      assert value == 3.14
+    end
+
+    test "adds decimal variable from Decimal" do
+      ctx = Elex.new_context()
+      ctx = Elex.add_variable(ctx, "x", Decimal.new("99.99"))
+
+      assert %Variable{value: value, type: :decimal} = ctx.variables["x"]
+      assert Decimal.equal?(value, Decimal.new("99.99"))
+    end
+
+    test "adds string variable" do
+      ctx = Elex.new_context()
+      ctx = Elex.add_variable(ctx, "name", "Alice")
+
+      assert %Variable{value: "Alice", type: :string} = ctx.variables["name"]
+    end
+
+    test "adds boolean variable" do
+      ctx = Elex.new_context()
+      ctx = Elex.add_variable(ctx, "flag", true)
+
+      assert %Variable{value: true, type: :boolean} = ctx.variables["flag"]
+    end
+
+    test "adds unknown type variable" do
+      ctx = Elex.new_context()
+      ctx = Elex.add_variable(ctx, "unknown", :some_atom)
+
+      assert %Variable{value: :some_atom, type: :unknown} = ctx.variables["unknown"]
+    end
+  end
+
+  describe "add_variables/2" do
+    test "adds multiple variables at once" do
+      ctx = Elex.new_context()
+
+      ctx =
+        Elex.add_variables(ctx, %{
+          "x" => 10,
+          "y" => 20,
+          "z" => 30
+        })
+
+      assert %Variable{value: 10, type: :decimal} = ctx.variables["x"]
+      assert %Variable{value: 20, type: :decimal} = ctx.variables["y"]
+      assert %Variable{value: 30, type: :decimal} = ctx.variables["z"]
+    end
+
+    test "adds variables with mixed types" do
+      ctx = Elex.new_context()
+
+      ctx =
+        Elex.add_variables(ctx, %{
+          "num" => 42,
+          "text" => "hello",
+          "flag" => true
+        })
+
+      assert %Variable{value: 42, type: :decimal} = ctx.variables["num"]
+      assert %Variable{value: "hello", type: :string} = ctx.variables["text"]
+      assert %Variable{value: true, type: :boolean} = ctx.variables["flag"]
+    end
+
+    test "works with empty map" do
+      ctx = Elex.new_context()
+      ctx = Elex.add_variables(ctx, %{})
+
+      assert ctx.variables == %{}
+    end
+  end
 
   describe "extract_variables/1" do
     test "extracts no variables from literal expressions" do

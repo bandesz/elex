@@ -66,4 +66,13 @@ defmodule Elex.Functions.FloorTest do
       assert {:error, "floor function expects 1 argument"} = parse("floor()")
     end
   end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.Floor.documentation()
+      assert is_map(doc)
+      assert doc.signature == "floor(x)"
+      assert is_binary(doc.description)
+    end
+  end
 end

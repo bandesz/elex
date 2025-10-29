@@ -66,4 +66,13 @@ defmodule Elex.Functions.CeilTest do
       assert {:error, "ceil function expects 1 argument"} = parse("ceil()")
     end
   end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.Ceil.documentation()
+      assert is_map(doc)
+      assert doc.signature == "ceil(x)"
+      assert is_binary(doc.description)
+    end
+  end
 end

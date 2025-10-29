@@ -48,4 +48,13 @@ defmodule Elex.Functions.SqrtTest do
       assert {:error, "sqrt function expects 1 argument"} = parse("sqrt()")
     end
   end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.Sqrt.documentation()
+      assert is_map(doc)
+      assert doc.signature == "sqrt(x)"
+      assert is_binary(doc.description)
+    end
+  end
 end

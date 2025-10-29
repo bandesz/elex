@@ -52,7 +52,16 @@ defmodule Elex.Functions.RemTest do
     end
 
     test "wrong number of arguments" do
-      assert {:error, "rem function expects 2 arguments"} = parse("rem(3)")
+      assert {:error, "rem function expects 2 arguments"} = parse("rem(5)")
+    end
+  end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.Rem.documentation()
+      assert is_map(doc)
+      assert doc.signature == "rem(a, b)"
+      assert is_binary(doc.description)
     end
   end
 end

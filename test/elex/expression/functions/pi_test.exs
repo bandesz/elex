@@ -27,7 +27,16 @@ defmodule Elex.Functions.PiTest do
     end
 
     test "wrong number of arguments" do
-      assert {:error, "pi function expects no arguments"} = parse("pi(1)")
+      assert {:error, "pi function expects no arguments"} = parse("pi(5)")
+    end
+  end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.Pi.documentation()
+      assert is_map(doc)
+      assert doc.signature == "pi()"
+      assert is_binary(doc.description)
     end
   end
 end

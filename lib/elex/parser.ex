@@ -229,9 +229,6 @@ defmodule Elex.Parser do
 
       {:error, reason, _rest, _, {line, _col}, _byte_offset} ->
         {:error, "Parse error at line #{line}: #{reason}"}
-
-      {:error, reason, _rest, _, _, _} ->
-        {:error, "Parse error: #{reason}"}
     end
   end
 

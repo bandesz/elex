@@ -64,4 +64,13 @@ defmodule Elex.Functions.RoundTest do
       assert {:error, "round function expects 1 argument"} = parse("round()")
     end
   end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.Round.documentation()
+      assert is_map(doc)
+      assert doc.signature == "round(x)"
+      assert is_binary(doc.description)
+    end
+  end
 end

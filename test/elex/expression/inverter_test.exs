@@ -225,4 +225,137 @@ defmodule Elex.InverterTest do
       assert Decimal.equal?(celsius_freezing, Decimal.new("0"))
     end
   end
+
+  describe "edge cases and error handling" do
+    test "handles expressions with no variables (returns literal)" do
+      ast = Decimal.new("42")
+      result = Inverter.invert(ast, "value")
+      assert result == Decimal.new("42")
+    end
+
+    test "handles string literals" do
+      ast = "hello"
+      result = Inverter.invert(ast, "value")
+      assert result == "hello"
+    end
+
+    test "handles boolean literals" do
+      ast = true
+      result = Inverter.invert(ast, "value")
+      assert result == true
+
+      ast = false
+      result = Inverter.invert(ast, "value")
+      assert result == false
+    end
+
+    test "fails when multiplying by zero on left side" do
+      ast = parse_expression("0 * value")
+
+      assert_raise RuntimeError, ~r/Cannot invert: division by zero/, fn ->
+        Inverter.invert(ast, "value")
+      end
+    end
+
+    test "fails with unsupported comparison operations" do
+      ctx =
+        Elex.new_context(%{
+          "x" => %{value: Decimal.new("0"), type: :decimal}
+        })
+
+      {:ok, ast, _type} = Parser.parse("x > 5", ctx)
+
+      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
+        Inverter.invert(ast, "x")
+      end
+    end
+
+    test "fails with function calls" do
+      ctx =
+        Elex.new_context(%{
+          "x" => %{value: Decimal.new("0"), type: :decimal}
+        })
+
+      {:ok, ast, _type} = Parser.parse("ceil(x)", ctx)
+
+      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
+        Inverter.invert(ast, "x")
+      end
+    end
+
+    test "fails with logical operations" do
+      ctx =
+        Elex.new_context(%{
+          "a" => %{value: true, type: :boolean},
+          "b" => %{value: true, type: :boolean}
+        })
+
+      {:ok, ast, _type} = Parser.parse("a and b", ctx)
+
+      assert_raise RuntimeError, ~r/Expression contains multiple variables/, fn ->
+        Inverter.invert(ast, "a")
+      end
+    end
+
+    test "fails with variable on both sides of addition" do
+      ctx =
+        Elex.new_context(%{
+          "x" => %{value: Decimal.new("0"), type: :decimal}
+        })
+
+      {:ok, ast, _type} = Parser.parse("x + x", ctx)
+
+      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
+        Inverter.invert(ast, "x")
+      end
+    end
+
+    test "fails with variable on both sides of subtraction" do
+      ctx =
+        Elex.new_context(%{
+          "x" => %{value: Decimal.new("0"), type: :decimal}
+        })
+
+      {:ok, ast, _type} = Parser.parse("x - x", ctx)
+
+      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
+        Inverter.invert(ast, "x")
+      end
+    end
+
+    test "fails with variable on both sides of multiplication" do
+      ctx =
+        Elex.new_context(%{
+          "x" => %{value: Decimal.new("0"), type: :decimal}
+        })
+
+      {:ok, ast, _type} = Parser.parse("x * x", ctx)
+
+      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
+        Inverter.invert(ast, "x")
+      end
+    end
+
+    test "fails with variable on both sides of division" do
+      ctx =
+        Elex.new_context(%{
+          "x" => %{value: Decimal.new("0"), type: :decimal}
+        })
+
+      {:ok, ast, _type} = Parser.parse("x / x", ctx)
+
+      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
+        Inverter.invert(ast, "x")
+      end
+    end
+
+    test "handles zero checks for different zero representations" do
+      # Test positive zero
+      ast = parse_expression("value * 0.0")
+
+      assert_raise RuntimeError, ~r/Cannot invert: division by zero/, fn ->
+        Inverter.invert(ast, "value")
+      end
+    end
+  end
 end
