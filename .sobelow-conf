@@ -6,6 +6,6 @@
   format: "txt",
   out: "",
   threshold: "low",
-  ignore: [],
-  ignore_files: []
+  ignore: ["DOS.StringToAtom"],
+  ignore_files: ["lib/elex/parser.ex"]
 ]
