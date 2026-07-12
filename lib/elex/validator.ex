@@ -165,19 +165,27 @@ defmodule Elex.Validator do
         {:ok, function_module}
 
       :error ->
-        case Map.fetch(ctx.functions, {name, :variadic}) do
-          {:ok, function_module} ->
-            min_arity = function_module.signature().min_arity
+        lookup_variadic_function(ctx, name, arity)
+    end
+  end
 
-            if arity >= min_arity do
-              {:ok, function_module}
-            else
-              {:error, :too_few_args, min_arity}
-            end
+  defp lookup_variadic_function(ctx, name, arity) do
+    case Map.fetch(ctx.functions, {name, :variadic}) do
+      {:ok, function_module} ->
+        validate_variadic_arity(function_module, arity)
 
-          :error ->
-            {:error, :not_found}
-        end
+      :error ->
+        {:error, :not_found}
+    end
+  end
+
+  defp validate_variadic_arity(function_module, arity) do
+    min_arity = function_module.signature().min_arity
+
+    if arity >= min_arity do
+      {:ok, function_module}
+    else
+      {:error, :too_few_args, min_arity}
     end
   end
 

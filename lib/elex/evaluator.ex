@@ -216,19 +216,27 @@ defmodule Elex.Evaluator do
         function_module
 
       :error ->
-        case Map.fetch(ctx.functions, {name, :variadic}) do
-          {:ok, function_module} ->
-            min_arity = function_module.signature().min_arity
+        lookup_variadic_function!(ctx, name, arity)
+    end
+  end
 
-            if arity >= min_arity do
-              function_module
-            else
-              raise "Function #{name}/#{arity} not found"
-            end
+  defp lookup_variadic_function!(ctx, name, arity) do
+    case Map.fetch(ctx.functions, {name, :variadic}) do
+      {:ok, function_module} ->
+        validate_variadic_arity!(function_module, name, arity)
 
-          :error ->
-            raise "Function #{name}/#{arity} not found"
-        end
+      :error ->
+        raise "Function #{name}/#{arity} not found"
+    end
+  end
+
+  defp validate_variadic_arity!(function_module, name, arity) do
+    min_arity = function_module.signature().min_arity
+
+    if arity >= min_arity do
+      function_module
+    else
+      raise "Function #{name}/#{arity} not found"
     end
   end
 

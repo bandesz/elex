@@ -25,7 +25,9 @@
           # requires Elixir < 1.7.0
           {Credo.Check.Warning.LazyLogging, []},
           # overly pedantic, sometimes negated conditions are clearer
-          {Credo.Check.Refactor.NegatedConditionsWithElse, []}
+          {Credo.Check.Refactor.NegatedConditionsWithElse, []},
+          # allow numbers larger than 9999 without underscores
+          {Credo.Check.Readability.LargeNumbers, []}
         ],
         enabled: [
           # Consistency Checks
@@ -40,7 +42,6 @@
 
           # Readability Checks
           {Credo.Check.Readability.FunctionNames, []},
-          {Credo.Check.Readability.LargeNumbers, []},
           {Credo.Check.Readability.MaxLineLength, [priority: :low, max_length: 120]},
           {Credo.Check.Readability.ModuleAttributeNames, []},
           {Credo.Check.Readability.ModuleDoc, false},
@@ -60,17 +61,17 @@
           {Credo.Check.Readability.VariableNames, []},
           {Credo.Check.Readability.WithSingleClause, []},
 
-          # Refactoring Checks (informational only - won't fail builds)
-          {Credo.Check.Refactor.CondStatements, [exit_status: 0]},
-          {Credo.Check.Refactor.CyclomaticComplexity, [exit_status: 0]},
-          {Credo.Check.Refactor.FunctionArity, [exit_status: 0]},
-          {Credo.Check.Refactor.LongQuoteBlocks, [exit_status: 0]},
-          {Credo.Check.Refactor.MapInto, [exit_status: 0]},
-          {Credo.Check.Refactor.MatchInCondition, [exit_status: 0]},
-          {Credo.Check.Refactor.NegatedConditionsInUnless, [exit_status: 0]},
-          {Credo.Check.Refactor.Nesting, [exit_status: 0]},
-          {Credo.Check.Refactor.UnlessWithElse, [exit_status: 0]},
-          {Credo.Check.Refactor.WithClauses, [exit_status: 0]},
+          # Refactoring Checks
+          {Credo.Check.Refactor.CondStatements, []},
+          {Credo.Check.Refactor.CyclomaticComplexity, []},
+          {Credo.Check.Refactor.FunctionArity, []},
+          {Credo.Check.Refactor.LongQuoteBlocks, []},
+          {Credo.Check.Refactor.MapInto, []},
+          {Credo.Check.Refactor.MatchInCondition, []},
+          {Credo.Check.Refactor.NegatedConditionsInUnless, []},
+          {Credo.Check.Refactor.Nesting, []},
+          {Credo.Check.Refactor.UnlessWithElse, []},
+          {Credo.Check.Refactor.WithClauses, []},
 
           # Warning Checks
           {Credo.Check.Warning.ApplicationConfigInModuleAttribute, []},

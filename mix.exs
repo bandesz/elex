@@ -11,6 +11,7 @@ defmodule Elex.MixProject do
       deps: deps(),
       aliases: aliases(),
       test_coverage: [summary: [threshold: 80]],
+      elixirc_options: elixirc_options(Mix.env()),
       description:
         "Parse, validate, and evaluate mathematical and logical expressions with variables, functions, and optional Ash integration.",
       package: package(),
@@ -49,6 +50,8 @@ defmodule Elex.MixProject do
       ]
     ]
   end
+
+  defp elixirc_options(_), do: [warnings_as_errors: true]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
@@ -103,17 +106,18 @@ defmodule Elex.MixProject do
         "credo --strict",
         "sobelow --config",
         "deps.unlock --check-unused",
-        "deps.audit"
+        "deps.audit --ignore-file .audit_ignore"
       ],
       precommit: [
         "compile --warnings-as-errors",
-        "format",
+        "deps.unlock --unused",
+        "format --check-formatted",
         "credo --strict",
         "sobelow --config",
-        "deps.unlock --unused",
-        "deps.audit",
+        "deps.audit --ignore-file .audit_ignore",
         "test"
       ],
+      test: ["test --warnings-as-errors"],
       "test.ci": ["test --cover --warnings-as-errors"]
     ]
   end
