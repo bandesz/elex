@@ -14,8 +14,8 @@ permissions:
 
 env:
   MIX_ENV: test
-  ELIXIR_VERSION: "1.18.4"
-  OTP_VERSION: "27"
+  ELIXIR_VERSION: "1.20.2"
+  OTP_VERSION: "29"
 
 jobs:
   test:
@@ -24,8 +24,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        elixir: ["1.18.4"]
-        otp: ["27"]
+        include:
+          - elixir: "1.18.4"
+            otp: "27"
+          - elixir: "1.19.5"
+            otp: "28"
+          - elixir: "1.20.2"
+            otp: "29"
     steps:
       - uses: actions/checkout@v4
 
@@ -75,9 +80,9 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-quality-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-quality-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-quality-
+            ${{ runner.os }}-mix-quality-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-
 
       - name: Install dependencies
         run: mix deps.get
@@ -118,18 +123,18 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-dialyzer-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-dialyzer-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-dialyzer-
+            ${{ runner.os }}-mix-dialyzer-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-
 
       - name: Restore PLT cache
         uses: actions/cache@v4
         id: plt-cache
         with:
           path: priv/plts
-          key: ${{ runner.os }}-plt-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-plt-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-plt-
+            ${{ runner.os }}-plt-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-
 
       - name: Install dependencies
         run: mix deps.get
