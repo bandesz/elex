@@ -63,9 +63,9 @@ defmodule Elex.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:decimal, "~> 2.0"},
+      {:decimal, "~> 3.1"},
       {:nimble_parsec, "~> 1.0"},
-      {:ash, "~> 3.0", optional: true},
+      {:ash, "~> 3.22", optional: true},
       # Dev/Test dependencies
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
