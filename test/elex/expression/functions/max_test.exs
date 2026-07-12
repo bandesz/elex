@@ -69,7 +69,7 @@ defmodule Elex.Functions.MaxTest do
     test "returns documentation map" do
       doc = Elex.Functions.Max.documentation()
       assert is_map(doc)
-      assert doc.signature == "max(a, b)"
+      assert doc.signature == "max(a, b, ...)"
       assert is_binary(doc.description)
     end
   end

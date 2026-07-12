@@ -14,6 +14,7 @@ defmodule Elex.Labels do
   | `:decimal` | "number" |
   | `:string`  | "text"   |
   | `:boolean` | "yes/no" |
+  | `nil`      | "empty"  |
   | `:unknown` | "value"  |
   """
 

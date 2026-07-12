@@ -66,4 +66,8 @@ defmodule Elex.Functions.Pow do
   defp integer_pow(base, exponent) when exponent > 1 do
     Enum.reduce(2..exponent, base, fn _, acc -> Decimal.mult(acc, base) end)
   end
+
+  defp integer_pow(base, exponent) when exponent < 0 do
+    Decimal.div(Decimal.new(1), integer_pow(base, abs(exponent)))
+  end
 end

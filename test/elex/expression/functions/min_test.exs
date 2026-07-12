@@ -69,7 +69,7 @@ defmodule Elex.Functions.MinTest do
     test "returns documentation map" do
       doc = Elex.Functions.Min.documentation()
       assert is_map(doc)
-      assert doc.signature == "min(a, b)"
+      assert doc.signature == "min(a, b, ...)"
       assert is_binary(doc.description)
     end
   end

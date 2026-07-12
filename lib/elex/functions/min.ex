@@ -56,8 +56,8 @@ defmodule Elex.Functions.Min do
   @doc false
   def documentation do
     %{
-      signature: "min(a, b)",
-      description: "returns the smaller of a or b"
+      signature: "min(a, b, ...)",
+      description: "returns the smallest of the given values"
     }
   end
 end

@@ -27,6 +27,12 @@ defmodule Elex.Functions.PowTest do
       assert parse_and_evaluate("pow(4, 0.5)") == Decimal.new("2")
     end
 
+    test "evaluates negative integer exponents" do
+      assert Decimal.equal?(parse_and_evaluate("pow(2, -1)"), Decimal.new("0.5"))
+      assert Decimal.equal?(parse_and_evaluate("pow(2, -2)"), Decimal.new("0.25"))
+      assert Decimal.equal?(parse_and_evaluate("pow(10, -3)"), Decimal.new("0.001"))
+    end
+
     test "evaluates with variables" do
       vars = %{
         "base" => %Variable{value: Decimal.new("2"), type: :decimal},

@@ -86,7 +86,7 @@ defmodule Elex.Functions.CoalesceTest do
     test "returns documentation map" do
       doc = Elex.Functions.Coalesce.documentation()
       assert is_map(doc)
-      assert doc.signature == "coalesce(a, b)"
+      assert doc.signature == "coalesce(a, b, ...)"
       assert is_binary(doc.description)
     end
   end

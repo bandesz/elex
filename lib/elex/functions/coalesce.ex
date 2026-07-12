@@ -1,6 +1,6 @@
 defmodule Elex.Functions.Coalesce do
   @moduledoc """
-  Returns the first non-empty argument.
+  Returns the first non-null argument.
 
   ## Expression syntax
 
@@ -43,8 +43,8 @@ defmodule Elex.Functions.Coalesce do
   @doc false
   def documentation do
     %{
-      signature: "coalesce(a, b)",
-      description: "returns the first non-empty argument"
+      signature: "coalesce(a, b, ...)",
+      description: "returns the first non-null argument"
     }
   end
 
