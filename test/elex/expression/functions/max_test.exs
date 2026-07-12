@@ -59,8 +59,9 @@ defmodule Elex.Functions.MaxTest do
       assert {:error, "max function expects 2 arguments"} = parse("max(5)")
     end
 
-    test "too many arguments" do
-      assert {:error, "max function expects 2 arguments"} = parse("max(1, 2, 3)")
+    test "evaluates with three or more arguments" do
+      assert parse_and_evaluate("max(10, 20, 5)") == Decimal.new("20")
+      assert parse_and_evaluate("max(10, 20, 5, 30, 15)") == Decimal.new("30")
     end
   end
 

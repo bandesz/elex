@@ -1,10 +1,11 @@
 defmodule Elex.Functions.Min do
   @moduledoc """
-  Returns the smaller of a or b.
+  Returns the smaller of two or more values.
 
   ## Expression syntax
 
       min(3, 7)
+      min(3, 7, 1)
   """
   @behaviour Elex.Function
 
@@ -15,28 +16,40 @@ defmodule Elex.Functions.Min do
   def signature do
     %{
       name: :min,
-      arity: 2
+      variadic: true,
+      min_arity: 2
     }
   end
 
   @impl Function
   @doc false
-  def validate([arg1_ast, arg2_ast], context) do
+  def validate(args_ast, context) do
     alias Elex.Validator
 
-    with {:ok, :decimal} <- Validator.validate(arg1_ast, context),
-         {:ok, :decimal} <- Validator.validate(arg2_ast, context) do
-      {:ok, :decimal}
-    else
-      {:ok, other_type} -> {:error, "min function expects number arguments, got #{other_type}"}
-      {:error, reason} -> {:error, reason}
-    end
+    Enum.reduce_while(args_ast, {:ok, :decimal}, fn arg_ast, acc ->
+      case acc do
+        {:error, _} = err ->
+          {:halt, err}
+
+        {:ok, _} ->
+          case Validator.validate(arg_ast, context) do
+            {:ok, :decimal} ->
+              {:cont, {:ok, :decimal}}
+
+            {:ok, other_type} ->
+              {:halt, {:error, "min function expects number arguments, got #{other_type}"}}
+
+            {:error, reason} ->
+              {:halt, {:error, reason}}
+          end
+      end
+    end)
   end
 
   @impl Function
   @doc false
-  def call([%Decimal{} = arg1, %Decimal{} = arg2]) do
-    {:ok, Decimal.min(arg1, arg2)}
+  def call([first | rest]) do
+    {:ok, Enum.reduce(rest, first, &Decimal.min/2)}
   end
 
   @impl Function

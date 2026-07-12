@@ -172,7 +172,7 @@ defmodule Elex.Evaluator do
   end
 
   def evaluate({:func, name, arity, args_ast}, ctx) do
-    function_module = Map.fetch!(ctx.functions, {name, arity})
+    function_module = lookup_function!(ctx, name, arity)
     evaluated_args = Enum.map(args_ast, &evaluate(&1, ctx))
 
     case function_module.call(evaluated_args) do
@@ -181,6 +181,28 @@ defmodule Elex.Evaluator do
 
       {:error, reason} ->
         raise "Error calling function #{name}/#{arity}: #{inspect(reason)}"
+    end
+  end
+
+  defp lookup_function!(ctx, name, arity) do
+    case Map.fetch(ctx.functions, {name, arity}) do
+      {:ok, function_module} ->
+        function_module
+
+      :error ->
+        case Map.fetch(ctx.functions, {name, :variadic}) do
+          {:ok, function_module} ->
+            min_arity = function_module.signature().min_arity
+
+            if arity >= min_arity do
+              function_module
+            else
+              raise "Function #{name}/#{arity} not found"
+            end
+
+          :error ->
+            raise "Function #{name}/#{arity} not found"
+        end
     end
   end
 end

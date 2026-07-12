@@ -41,10 +41,16 @@ defmodule Elex.Function do
 
   The name is used in expression syntax (e.g. `my_func(1, 2)`).
   """
-  @callback signature() :: %{
-              name: atom(),
-              arity: non_neg_integer()
-            }
+  @callback signature() ::
+              %{
+                name: atom() | String.t(),
+                arity: non_neg_integer()
+              }
+              | %{
+                  name: atom() | String.t(),
+                  variadic: true,
+                  min_arity: non_neg_integer()
+                }
 
   @doc """
   Validates function arguments at parse time and returns the result type.

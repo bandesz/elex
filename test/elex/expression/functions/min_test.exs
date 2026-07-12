@@ -58,6 +58,11 @@ defmodule Elex.Functions.MinTest do
     test "wrong number of arguments" do
       assert {:error, "min function expects 2 arguments"} = parse("min(5)")
     end
+
+    test "evaluates with three or more arguments" do
+      assert parse_and_evaluate("min(10, 20, 5)") == Decimal.new("5")
+      assert parse_and_evaluate("min(10, 20, 5, 3, 15)") == Decimal.new("3")
+    end
   end
 
   describe "documentation/0" do

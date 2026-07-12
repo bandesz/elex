@@ -9,8 +9,8 @@ defmodule Elex.Context do
   ## Fields
 
   - `:variables` - Map of variable name strings to [`Elex.Variable`](Elex.Variable) structs
-  - `:functions` - Map of `{name, arity}` tuples to modules implementing
-    [`Elex.Function`](Elex.Function)
+  - `:functions` - Map of `{name, arity}` or `{name, :variadic}` tuples to modules
+    implementing [`Elex.Function`](Elex.Function)
 
   ## Examples
 
@@ -26,7 +26,7 @@ defmodule Elex.Context do
 
   @type t :: %__MODULE__{
           variables: %{optional(String.t()) => Variable.t()},
-          functions: %{optional({String.t(), non_neg_integer()}) => module()}
+          functions: %{optional({String.t(), non_neg_integer() | :variadic}) => module()}
         }
 
   @doc """
@@ -51,7 +51,15 @@ defmodule Elex.Context do
   def add_function(%__MODULE__{} = ctx, funmod) do
     sig = apply(funmod, :signature, [])
     func_name = if is_atom(sig.name), do: Atom.to_string(sig.name), else: sig.name
-    Map.put(ctx, :functions, Map.put(ctx.functions, {func_name, sig.arity}, funmod))
+
+    key =
+      if Map.get(sig, :variadic) do
+        {func_name, :variadic}
+      else
+        {func_name, sig.arity}
+      end
+
+    Map.put(ctx, :functions, Map.put(ctx.functions, key, funmod))
   end
 
   @doc """

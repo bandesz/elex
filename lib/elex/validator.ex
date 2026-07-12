@@ -140,17 +140,42 @@ defmodule Elex.Validator do
   end
 
   def validate({:func, name, arity, args_ast}, ctx) do
-    case Map.fetch(ctx.functions, {name, arity}) do
+    case lookup_function(ctx, name, arity) do
       {:ok, function_module} ->
         function_module.validate(args_ast, ctx)
 
-      :error ->
+      {:error, :too_few_args, min_arity} ->
+        build_function_error(name, arity, [min_arity])
+
+      {:error, :not_found} ->
         arities =
           Enum.filter(ctx.functions, fn {{fun, _arity}, _} -> fun == name end)
-          |> Enum.map(fn {{_fun, arity}, _} -> arity end)
+          |> Enum.map(fn {{_fun, fun_arity}, _} -> fun_arity end)
           |> Enum.sort()
 
         build_function_error(name, arity, arities)
+    end
+  end
+
+  defp lookup_function(ctx, name, arity) do
+    case Map.fetch(ctx.functions, {name, arity}) do
+      {:ok, function_module} ->
+        {:ok, function_module}
+
+      :error ->
+        case Map.fetch(ctx.functions, {name, :variadic}) do
+          {:ok, function_module} ->
+            min_arity = function_module.signature().min_arity
+
+            if arity >= min_arity do
+              {:ok, function_module}
+            else
+              {:error, :too_few_args, min_arity}
+            end
+
+          :error ->
+            {:error, :not_found}
+        end
     end
   end
 

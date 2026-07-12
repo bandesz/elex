@@ -32,8 +32,8 @@ defmodule Elex.ContextTest do
       ctx = %Context{}
       ctx = Context.add_function(ctx, Elex.Functions.Max)
 
-      assert Map.has_key?(ctx.functions, {"max", 2})
-      assert ctx.functions[{"max", 2}] == Elex.Functions.Max
+      assert Map.has_key?(ctx.functions, {"max", :variadic})
+      assert ctx.functions[{"max", :variadic}] == Elex.Functions.Max
     end
 
     test "adds function module with string name" do
@@ -58,8 +58,8 @@ defmodule Elex.ContextTest do
       ctx = Context.add_function(ctx, Elex.Functions.Max)
       ctx = Context.add_function(ctx, Elex.Functions.Min)
 
-      assert Map.has_key?(ctx.functions, {"max", 2})
-      assert Map.has_key?(ctx.functions, {"min", 2})
+      assert Map.has_key?(ctx.functions, {"max", :variadic})
+      assert Map.has_key?(ctx.functions, {"min", :variadic})
     end
 
     test "preserves variables when adding functions" do
@@ -103,7 +103,7 @@ defmodule Elex.ContextTest do
       var = %Variable{value: 42, type: :decimal}
       ctx = Context.add_variable(ctx, "num", var)
 
-      assert Map.has_key?(ctx.functions, {"max", 2})
+      assert Map.has_key?(ctx.functions, {"max", :variadic})
     end
 
     test "handles different variable types" do
