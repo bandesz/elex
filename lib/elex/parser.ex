@@ -1,4 +1,38 @@
 defmodule Elex.Parser do
+  @moduledoc """
+  Parses Elex expression strings into AST tuples.
+
+  The parser is built with NimbleParsec and supports operator precedence, function calls,
+  literals, and variables. Parsing optionally validates the AST against a
+  [`Elex.Context`](Elex.Context) via [`Elex.Validator`](Elex.Validator).
+
+  ## Syntax overview
+
+  **Literals:** decimal numbers (`3.14`, `-5`), booleans (`true`, `false`, `yes`, `no`),
+  strings (`"hello"`)
+
+  **Variables:** lowercase identifiers (`x`, `my_var`)
+
+  **Operators** (by precedence, lowest to highest):
+
+  - `or`
+  - `and`
+  - `==`, `!=`, `<`, `>`, `<=`, `>=`
+  - `+`, `-`
+  - `*`, `/`
+  - `not` (unary)
+
+  **Functions:** `name(arg1, arg2)` — see built-in modules under `Elex.Functions.*`
+
+  Parentheses group sub-expressions: `(1 + 2) * 3`
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      Elex.Parser.parse("x + 5", context)
+      #=> {:ok, {:+, [{:var, "x"}, #Decimal<5>]}, :decimal}
+
+  """
   import NimbleParsec
 
   alias Elex.Context
@@ -88,11 +122,11 @@ defmodule Elex.Parser do
     |> reduce(:reduce_function_call)
     |> label("function")
 
-  def reduce_function_call([name | args_list]) when is_list(args_list) do
+  defp reduce_function_call([name | args_list]) when is_list(args_list) do
     {:func, name, length(args_list), args_list}
   end
 
-  def reduce_function_call([name]) do
+  defp reduce_function_call([name]) do
     {:func, name, 0, []}
   end
 
@@ -212,12 +246,31 @@ defmodule Elex.Parser do
   @doc """
   Parses an expression string and optionally validates the resulting AST against a context.
 
+  ## Parameters
 
-    * `:validate` - Whether to validate the AST. Defaults to `true`.
+  - `expression` - The expression string to parse
+  - `context` - A [`Elex.Context`](Elex.Context) with variables and functions
+  - `opts` - Keyword list of options (see below)
 
+  ## Options
 
-    * `{:ok, ast, type}` - If parsing (and optionally validation) is successful.
-    * `{:error, reason}` - If parsing or validation fails.
+  - `:validate` - Whether to validate the AST against the context. Defaults to `true`.
+    When `false`, the returned type is `nil`.
+
+  ## Returns
+
+  - `{:ok, ast, type}` - Parsed (and optionally validated) AST with result type
+  - `{:error, reason}` - Parse or validation error message
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      Elex.Parser.parse("x + 5", context)
+      #=> {:ok, {:+, [{:var, "x"}, #Decimal<5>]}, :decimal}
+
+      Elex.Parser.parse("unknown_var", context)
+      #=> {:error, "variable 'unknown_var' does not exist"}
+
   """
   @spec parse(String.t(), Context.t(), keyword()) :: {:ok, term(), atom()} | {:error, String.t()}
   def parse(expression, context, opts \\ []) do

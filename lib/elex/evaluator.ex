@@ -1,7 +1,46 @@
 defmodule Elex.Evaluator do
+  @moduledoc """
+  Evaluates a parsed expression AST to a runtime value.
+
+  This module raises `RuntimeError` on evaluation failures (missing variables, type
+  errors, function failures). For a safe string-based API that returns error tuples,
+  prefer `Elex.evaluate/2`.
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      {:ok, ast, _} = Elex.Parser.parse("x + 5", context)
+      Elex.Evaluator.evaluate(ast, context)
+      #=> #Decimal<15>
+
+  """
   alias Elex.Context
   import Elex.Labels
 
+  @doc """
+  Evaluates a parsed expression AST.
+
+  ## Parameters
+
+  - `ast` - A parsed AST node from [`Elex.Parser`](Elex.Parser)
+  - `ctx` - A [`Elex.Context`](Elex.Context) with variable values and functions
+
+  ## Returns
+
+  The evaluated result: a `Decimal.t()`, `boolean()`, or `String.t()`.
+
+  ## Raises
+
+  - `RuntimeError` on type errors, missing variables, or function call failures
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      {:ok, ast, _} = Elex.Parser.parse("x * 2", context)
+      Elex.Evaluator.evaluate(ast, context)
+      #=> #Decimal<20>
+
+  """
   @spec evaluate(term(), Context.t()) :: Decimal.t() | boolean() | any()
   def evaluate(ast, ctx)
 

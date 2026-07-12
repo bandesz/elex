@@ -1,9 +1,17 @@
 defmodule Elex.Functions.Round do
+  @moduledoc """
+  Returns x rounded to the nearest integer.
+
+  ## Expression syntax
+
+      round(3.6)
+  """
   @behaviour Elex.Function
 
   alias Elex.Function
 
   @impl Function
+  @doc false
   def signature do
     %{
       name: :round,
@@ -12,6 +20,7 @@ defmodule Elex.Functions.Round do
   end
 
   @impl Function
+  @doc false
   def validate([arg_ast], context) do
     alias Elex.Validator
 
@@ -23,11 +32,13 @@ defmodule Elex.Functions.Round do
   end
 
   @impl Function
+  @doc false
   def call([arg]) when is_struct(arg, Decimal) do
     {:ok, Decimal.round(arg)}
   end
 
   @impl Function
+  @doc false
   def documentation do
     %{
       signature: "round(x)",

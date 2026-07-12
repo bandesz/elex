@@ -1,9 +1,17 @@
 defmodule Elex.Functions.Sqrt do
+  @moduledoc """
+  Returns the square root of x.
+
+  ## Expression syntax
+
+      sqrt(16)
+  """
   @behaviour Elex.Function
 
   alias Elex.Function
 
   @impl Function
+  @doc false
   def signature do
     %{
       name: :sqrt,
@@ -12,6 +20,7 @@ defmodule Elex.Functions.Sqrt do
   end
 
   @impl Function
+  @doc false
   def validate([arg_ast], context) do
     alias Elex.Validator
 
@@ -23,11 +32,13 @@ defmodule Elex.Functions.Sqrt do
   end
 
   @impl Function
+  @doc false
   def call([arg]) when is_struct(arg, Decimal) do
     {:ok, Decimal.sqrt(arg)}
   end
 
   @impl Function
+  @doc false
   def documentation do
     %{
       signature: "sqrt(x)",

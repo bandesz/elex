@@ -1,9 +1,45 @@
 defmodule Elex.Validator do
+  @moduledoc """
+  Validates a parsed expression AST for type correctness.
+
+  Checks that operators are applied to compatible types, variables exist in the
+  context, and function calls match registered signatures. Used by
+  [`Elex.Parser`](Elex.Parser) during parsing and available for direct AST validation.
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      {:ok, ast, _} = Elex.Parser.parse("x + 5", context, validate: false)
+      Elex.Validator.validate(ast, context)
+      #=> {:ok, :decimal}
+
+  """
   alias Elex.Context
   import Elex.Labels
 
   @reserved_keywords ["and", "or", "not"]
 
+  @doc """
+  Validates an expression AST against a context.
+
+  ## Parameters
+
+  - `ast` - A parsed AST node from [`Elex.Parser`](Elex.Parser)
+  - `ctx` - A [`Elex.Context`](Elex.Context) with variable types and functions
+
+  ## Returns
+
+  - `{:ok, type}` - The expression's result type (`:decimal`, `:boolean`, or `:string`)
+  - `{:error, reason}` - A human-readable validation error
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      {:ok, ast, _} = Elex.Parser.parse("x > 0", context, validate: false)
+      Elex.Validator.validate(ast, context)
+      #=> {:ok, :boolean}
+
+  """
   @spec validate(term(), Context.t()) ::
           {:ok, atom()} | {:error, String.t()}
   def validate(ast, ctx)

@@ -1,13 +1,43 @@
 if Code.ensure_loaded?(Ash.Resource.Validation) do
   defmodule Elex.AshValidation do
     @moduledoc """
-    Validates an Elex Expression string in Ash resources.
+    Ash resource validation for Elex expression strings.
 
-    Options:
-    * `:attribute`: The name of the attribute which contains the expression
-    * `:context`: A `Elex.Context` struct defining the allowed variables and functions.
-    * `:expected_type`: The expected result type (atom) of the expression (e.g., `:boolean`, `:decimal`).
-    * `:add_value_type_from_attribute`: It adds a `value` variable to the context with the type defined by this attribute.
+    Validates that a string attribute contains a syntactically valid expression that
+    type-checks against a [`Elex.Context`](Elex.Context) and returns the expected type.
+
+    This module is only compiled when `Ash.Resource.Validation` is available (the `:ash`
+    dependency is optional).
+
+    ## Examples
+
+        defmodule MyApp.Resource do
+          use Ash.Resource
+
+          attributes do
+            attribute :formula, :string do
+              allow_nil? false
+            end
+          end
+
+          validations do
+            validate Elex.AshValidation,
+              attribute: :formula,
+              context: Elex.new_context(),
+              expected_type: :decimal
+          end
+        end
+
+    ## Options
+
+    - `:attribute` (required) — Atom name of the attribute containing the expression
+    - `:context` (required) — A [`Elex.Context`](Elex.Context) defining allowed variables
+      and functions
+    - `:expected_type` (required) — Expected result type (`:decimal`, `:boolean`, or
+      `:string`)
+    - `:add_value_type_from_attribute` — When set to an attribute atom, adds a `"value"`
+      variable to the context with the type from that attribute's current value
+    - `:description` — Optional description shown in validation error messages
     """
     use Ash.Resource.Validation
     alias Ash.Error.Changes.InvalidAttribute

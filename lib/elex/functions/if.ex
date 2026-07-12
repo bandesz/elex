@@ -1,9 +1,17 @@
 defmodule Elex.Functions.If do
+  @moduledoc """
+  Returns value1 if condition is true, otherwise value2.
+
+  ## Expression syntax
+
+      if(x > 0, 1, -1)
+  """
   @behaviour Elex.Function
 
   alias Elex.Function
 
   @impl Function
+  @doc false
   def signature do
     %{
       name: :if,
@@ -12,6 +20,7 @@ defmodule Elex.Functions.If do
   end
 
   @impl Function
+  @doc false
   def validate([cond_ast, val1_ast, val2_ast], context) do
     alias Elex.Validator
 
@@ -33,6 +42,7 @@ defmodule Elex.Functions.If do
   end
 
   @impl Function
+  @doc false
   def call([condition, value1, value2]) do
     if condition do
       {:ok, value1}
@@ -42,6 +52,7 @@ defmodule Elex.Functions.If do
   end
 
   @impl Function
+  @doc false
   def documentation do
     %{
       signature: "if(condition, value1, value2)",
