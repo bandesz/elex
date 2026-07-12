@@ -10,6 +10,7 @@ defmodule Elex.Functions.Max do
   @behaviour Elex.Function
 
   alias Elex.Function
+  alias Elex.Validator
 
   @impl Function
   @doc false
@@ -24,24 +25,23 @@ defmodule Elex.Functions.Max do
   @impl Function
   @doc false
   def validate(args_ast, context) do
-    alias Elex.Validator
+    case validate_all_decimal(args_ast, context) do
+      :ok -> {:ok, :decimal}
+      {:error, _} = err -> err
+    end
+  end
 
-    Enum.reduce_while(args_ast, {:ok, :decimal}, fn arg_ast, acc ->
-      case acc do
-        {:error, _} = err ->
-          {:halt, err}
+  defp validate_all_decimal(args_ast, context) do
+    Enum.reduce_while(args_ast, :ok, fn arg_ast, :ok ->
+      case Validator.validate(arg_ast, context) do
+        {:ok, :decimal} ->
+          {:cont, :ok}
 
-        {:ok, _} ->
-          case Validator.validate(arg_ast, context) do
-            {:ok, :decimal} ->
-              {:cont, {:ok, :decimal}}
+        {:ok, other_type} ->
+          {:halt, {:error, "max function expects number arguments, got #{other_type}"}}
 
-            {:ok, other_type} ->
-              {:halt, {:error, "max function expects number arguments, got #{other_type}"}}
-
-            {:error, reason} ->
-              {:halt, {:error, reason}}
-          end
+        {:error, reason} ->
+          {:halt, {:error, reason}}
       end
     end)
   end
