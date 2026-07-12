@@ -38,8 +38,13 @@ defmodule Elex do
     Elex.Functions.Between,
     Elex.Functions.Ceil,
     Elex.Functions.Clamp,
+    Elex.Functions.Concat,
+    Elex.Functions.Contains,
+    Elex.Functions.EndsWith,
     Elex.Functions.Floor,
     Elex.Functions.If,
+    Elex.Functions.Length,
+    Elex.Functions.Lower,
     Elex.Functions.Max,
     Elex.Functions.Min,
     Elex.Functions.Mod,
@@ -47,7 +52,10 @@ defmodule Elex do
     Elex.Functions.Pow,
     Elex.Functions.Rem,
     Elex.Functions.Round,
-    Elex.Functions.Sqrt
+    Elex.Functions.Sqrt,
+    Elex.Functions.StartsWith,
+    Elex.Functions.Trim,
+    Elex.Functions.Upper
   ]
 
   @doc """

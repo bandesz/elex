@@ -29,8 +29,13 @@ defmodule ElexTest do
                "between",
                "ceil",
                "clamp",
+               "concat",
+               "contains",
+               "ends_with",
                "floor",
                "if",
+               "length",
+               "lower",
                "max",
                "min",
                "mod",
@@ -38,7 +43,10 @@ defmodule ElexTest do
                "pow",
                "rem",
                "round",
-               "sqrt"
+               "sqrt",
+               "starts_with",
+               "trim",
+               "upper"
              ]
     end
   end
