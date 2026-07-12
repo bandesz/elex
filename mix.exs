@@ -83,7 +83,7 @@ defmodule Elex.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:decimal, "~> 3.1"},
+      {:decimal, "~> 2.0 or ~> 3.0"},
       {:nimble_parsec, "~> 1.0"},
       {:ash, "~> 3.22", optional: true},
       # Dev/Test dependencies
