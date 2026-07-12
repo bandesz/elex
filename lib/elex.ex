@@ -108,7 +108,7 @@ defmodule Elex do
 
   ## Returns
 
-  - `{:ok, result}` - The evaluated result (`Decimal.t()`, `boolean()`, or `String.t()`)
+  - `{:ok, result}` - The evaluated result (`Decimal.t()`, `boolean()`, `String.t()`, or `nil`)
   - `{:error, reason}` - A human-readable error message
 
   ## Examples
@@ -119,7 +119,7 @@ defmodule Elex do
 
   """
   @spec evaluate(String.t(), Context.t()) ::
-          {:ok, Decimal.t() | boolean() | String.t()} | {:error, String.t()}
+          {:ok, Decimal.t() | boolean() | String.t() | nil} | {:error, String.t()}
   def evaluate(expression_string, context) do
     with {:ok, ast, _type} <- Elex.Parser.parse(expression_string, context),
          result <- Elex.Evaluator.evaluate(ast, context) do

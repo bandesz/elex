@@ -65,6 +65,13 @@ defmodule Elex.Functions.BetweenTest do
       assert {:error, "variable 'missing' does not exist"} = parse("between(missing, 0, 10)")
     end
 
+    test "returns evaluation error when low is greater than high" do
+      ctx = Elex.new_context()
+
+      assert {:error, "Evaluation error: " <> _} =
+               Elex.evaluate("between(5, 10, 0)", ctx)
+    end
+
     test "wrong number of arguments" do
       assert {:error, "between function expects 3 arguments"} = parse("between(5, 0)")
     end

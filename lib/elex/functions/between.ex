@@ -40,11 +40,15 @@ defmodule Elex.Functions.Between do
   @impl Function
   @doc false
   def call([%Decimal{} = value, %Decimal{} = low, %Decimal{} = high]) do
-    result =
-      Decimal.compare(value, low) in [:gt, :eq] and
-        Decimal.compare(value, high) in [:lt, :eq]
+    if Decimal.compare(low, high) == :gt do
+      {:error, "between low must be less than or equal to high"}
+    else
+      result =
+        Decimal.compare(value, low) in [:gt, :eq] and
+          Decimal.compare(value, high) in [:lt, :eq]
 
-    {:ok, result}
+      {:ok, result}
+    end
   end
 
   @impl Function

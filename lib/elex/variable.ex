@@ -8,7 +8,7 @@ defmodule Elex.Variable do
 
   ## Fields
 
-  - `:type` - One of `:decimal`, `:boolean`, `:string`, or `:unknown`
+  - `:type` - One of `:decimal`, `:boolean`, `:string`, `nil`, or `:unknown`
   - `:value` - The runtime value (`Decimal.t()`, `boolean()`, `String.t()`, etc.)
 
   ## Examples

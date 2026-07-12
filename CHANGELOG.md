@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - String functions: `concat`, `length`, `contains`, `starts_with`, `ends_with`, `lower`, `upper`, `trim`
 - `coalesce` function (variadic; returns the first non-null argument)
 
+### Changed
+
+- `mod(a, b)` now uses floored modulo (sign follows the divisor), distinct from `rem(a, b)` and `%`
+- `between(x, low, high)` returns an error when `low > high`, matching `clamp/3`
+
 ## [0.1.0] - 2025-07-12
 
 ### Changed

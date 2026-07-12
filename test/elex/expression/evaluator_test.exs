@@ -78,6 +78,18 @@ defmodule Elex.EvaluatorTest do
       assert_parse_error(~s["a" == null])
     end
 
+    test "returns error for ordering operators on null during parsing" do
+      assert_parse_error("null < 1")
+      assert_parse_error("1 < null")
+      assert_parse_error("null > 1")
+      assert_parse_error("1 > null")
+      assert_parse_error("null <= 1")
+      assert_parse_error("1 <= null")
+      assert_parse_error("null >= 1")
+      assert_parse_error("1 >= null")
+      assert_parse_error("null < null")
+    end
+
     test "null literal takes precedence over a context variable named null" do
       ctx =
         Elex.new_context(%{

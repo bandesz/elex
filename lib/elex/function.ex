@@ -33,7 +33,7 @@ defmodule Elex.Function do
       end
   """
 
-  @type value :: String.t() | boolean() | Decimal.t()
+  @type value :: String.t() | boolean() | Decimal.t() | nil
   @type error_reason :: term()
 
   @doc """

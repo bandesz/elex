@@ -148,7 +148,8 @@ Comparison operands must have the same type (decimal, boolean, string, or null).
 | `ceil(x)`, `floor(x)`, `round(x)` | Rounding |
 | `sqrt(x)` | Square root |
 | `pow(base, exp)` | Exponentiation |
-| `rem(a, b)`, `mod(a, b)` | Remainder of `a` divided by `b` |
+| `rem(a, b)` | Remainder (sign follows the dividend; same as `%`) |
+| `mod(a, b)` | Floored modulo (sign follows the divisor) |
 | `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers (variadic) |
 | `clamp(x, min, max)` | Clamp `x` to an inclusive range |
 | `between(x, low, high)` | `true` when `x` is in the inclusive range |

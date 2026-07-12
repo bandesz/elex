@@ -24,8 +24,15 @@ defmodule Elex.Functions.ModTest do
   describe "mod/2 function" do
     test "evaluates with literals" do
       assert parse_and_evaluate("mod(10, 3)") == Decimal.new("1")
+      assert parse_and_evaluate("mod(-3, 2)") == Decimal.new("1")
       assert parse_and_evaluate("mod(-3, -2)") == Decimal.new("-1")
+      assert parse_and_evaluate("mod(3, -2)") == Decimal.new("-1")
       assert parse_and_evaluate("mod(3.1, 2.1)") == Decimal.new("1.0")
+    end
+
+    test "differs from rem for negative dividends" do
+      assert parse_and_evaluate("mod(-3, 2)") == Decimal.new("1")
+      assert parse_and_evaluate("rem(-3, 2)") == Decimal.new("-1")
     end
 
     test "evaluates with variables" do

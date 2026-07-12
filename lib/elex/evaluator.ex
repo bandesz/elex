@@ -27,7 +27,7 @@ defmodule Elex.Evaluator do
 
   ## Returns
 
-  The evaluated result: a `Decimal.t()`, `boolean()`, or `String.t()`.
+  The evaluated result: a `Decimal.t()`, `boolean()`, `String.t()`, or `nil`.
 
   ## Raises
 
@@ -41,7 +41,7 @@ defmodule Elex.Evaluator do
       #=> #Decimal<20>
 
   """
-  @spec evaluate(term(), Context.t()) :: Decimal.t() | boolean() | any()
+  @spec evaluate(term(), Context.t()) :: Decimal.t() | boolean() | String.t() | nil
   def evaluate(ast, ctx)
 
   def evaluate(%Decimal{} = decimal, _ctx), do: decimal

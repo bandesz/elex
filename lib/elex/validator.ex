@@ -29,7 +29,7 @@ defmodule Elex.Validator do
 
   ## Returns
 
-  - `{:ok, type}` - The expression's result type (`:decimal`, `:boolean`, or `:string`)
+  - `{:ok, type}` - The expression's result type (`:decimal`, `:boolean`, `:string`, or `nil`)
   - `{:error, reason}` - A human-readable validation error
 
   ## Examples

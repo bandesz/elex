@@ -1,6 +1,9 @@
 defmodule Elex.Functions.Mod do
   @moduledoc """
-  Returns the remainder of a divided by b.
+  Returns the floored modulo of a divided by b (sign follows the divisor).
+
+  Unlike [`rem/2`](`Elex.Functions.Rem`), which keeps the sign of the dividend,
+  `mod(-3, 2)` returns `1` while `rem(-3, 2)` returns `-1`.
 
   ## Expression syntax
 
@@ -36,7 +39,25 @@ defmodule Elex.Functions.Mod do
   @impl Function
   @doc false
   def call([%Decimal{} = arg1, %Decimal{} = arg2]) do
-    {:ok, Decimal.rem(arg1, arg2)}
+    {:ok, floored_mod(arg1, arg2)}
+  end
+
+  defp floored_mod(dividend, divisor) do
+    remainder = Decimal.rem(dividend, divisor)
+
+    cond do
+      Decimal.equal?(remainder, 0) ->
+        remainder
+
+      Decimal.compare(divisor, 0) == :gt and Decimal.compare(remainder, 0) == :lt ->
+        Decimal.add(remainder, divisor)
+
+      Decimal.compare(divisor, 0) == :lt and Decimal.compare(remainder, 0) == :gt ->
+        Decimal.add(remainder, divisor)
+
+      true ->
+        remainder
+    end
   end
 
   @impl Function
@@ -44,7 +65,8 @@ defmodule Elex.Functions.Mod do
   def documentation do
     %{
       signature: "mod(a, b)",
-      description: "returns the remainder of a divided by b"
+      description:
+        "returns the floored modulo of a divided by b (sign follows the divisor, unlike rem)"
     }
   end
 end

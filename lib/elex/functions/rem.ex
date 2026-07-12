@@ -1,6 +1,8 @@
 defmodule Elex.Functions.Rem do
   @moduledoc """
-  Returns the remainder of a divided by b.
+  Returns the remainder of a divided by b (sign follows the dividend).
+
+  For floored modulo where the sign follows the divisor, use [`mod/2`](`Elex.Functions.Mod`).
 
   ## Expression syntax
 
@@ -44,7 +46,8 @@ defmodule Elex.Functions.Rem do
   def documentation do
     %{
       signature: "rem(a, b)",
-      description: "returns the remainder of a divided by b"
+      description:
+        "returns the remainder of a divided by b (sign follows the dividend, unlike mod)"
     }
   end
 end
