@@ -51,8 +51,16 @@ defmodule Elex.Functions.MaxTest do
                parse("max(3, \"foo\")")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, "variable 'missing' does not exist"} = parse("max(missing, 2)")
+    end
+
     test "wrong number of arguments" do
       assert {:error, "max function expects 2 arguments"} = parse("max(5)")
+    end
+
+    test "too many arguments" do
+      assert {:error, "max function expects 2 arguments"} = parse("max(1, 2, 3)")
     end
   end
 

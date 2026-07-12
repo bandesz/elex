@@ -62,6 +62,10 @@ defmodule Elex.Functions.FloorTest do
                parse("floor(\"foo\")")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, "variable 'missing' does not exist"} = parse("floor(missing)")
+    end
+
     test "wrong number of arguments" do
       assert {:error, "floor function expects 1 argument"} = parse("floor()")
     end

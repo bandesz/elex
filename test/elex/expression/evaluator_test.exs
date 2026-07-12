@@ -41,6 +41,17 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate("false") == false
     end
 
+    test "evaluates yes/no boolean aliases" do
+      assert parse_and_evaluate("yes") == true
+      assert parse_and_evaluate("no") == false
+    end
+
+    test "comparison binds tighter than and" do
+      assert parse_and_evaluate("1 < 2 and 3 < 4") == true
+      assert parse_and_evaluate("1 < 2 and 3 > 4") == false
+      assert parse_and_evaluate("2 < 1 and 3 < 4") == false
+    end
+
     test "evaluates string literals" do
       assert parse_and_evaluate("\"hello\"") == "hello"
       assert parse_and_evaluate("\"hello world\"") == "hello world"

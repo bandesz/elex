@@ -69,6 +69,11 @@ defmodule Elex.Functions.IfTest do
       assert {:ok, %{type: :boolean}} == validate("if(true, true, false)")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, %{reason: "variable 'missing' does not exist", type: :validation}} =
+               validate("if(missing, 1, 2)")
+    end
+
     test "nested if functions" do
       assert {:ok, Decimal.new(30)} == eval("if(1 < 2, if(true, 30, 40), 50)")
       assert {:ok, Decimal.new(50)} == eval("if(1 > 2, if(true, 30, 40), 50)")
@@ -105,6 +110,15 @@ defmodule Elex.Functions.IfTest do
         })
 
       assert {:ok, Decimal.new(20)} == eval("if(cond, val1, val2)", context)
+    end
+  end
+
+  describe "documentation/0" do
+    test "returns documentation map" do
+      doc = Elex.Functions.If.documentation()
+      assert is_map(doc)
+      assert doc.signature == "if(condition, value1, value2)"
+      assert is_binary(doc.description)
     end
   end
 end

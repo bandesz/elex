@@ -60,6 +60,10 @@ defmodule Elex.Functions.RoundTest do
                parse("round(\"foo\")")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, "variable 'missing' does not exist"} = parse("round(missing)")
+    end
+
     test "wrong number of arguments" do
       assert {:error, "round function expects 1 argument"} = parse("round()")
     end

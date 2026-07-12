@@ -62,6 +62,10 @@ defmodule Elex.Functions.CeilTest do
                parse("ceil(\"foo\")")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, "variable 'missing' does not exist"} = parse("ceil(missing)")
+    end
+
     test "wrong number of arguments" do
       assert {:error, "ceil function expects 1 argument"} = parse("ceil()")
     end

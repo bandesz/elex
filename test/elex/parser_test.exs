@@ -28,5 +28,36 @@ defmodule Elex.ParserTest do
       ctx = Elex.new_context()
       assert {:ok, {:var, "unknown"}, nil} = Parser.parse("unknown", ctx, validate: false)
     end
+
+    test "returns parse error even when validate: false for a syntactically invalid expression" do
+      ctx = Elex.new_context()
+      assert {:error, "Parse error at line 1:" <> _} = Parser.parse("1 +", ctx, validate: false)
+    end
+  end
+
+  describe "parse/3 syntax errors" do
+    test "parse error includes the line number" do
+      ctx = Elex.new_context()
+      assert {:error, message} = Parser.parse("1 +", ctx)
+      assert message =~ "Parse error at line 1:"
+    end
+
+    test "returns a parse error for an empty string" do
+      ctx = Elex.new_context()
+      assert {:error, message} = Parser.parse("", ctx)
+      assert message =~ "Parse error at line 1:"
+    end
+  end
+
+  describe "parse/3 boolean aliases" do
+    test "parses 'yes' as boolean true" do
+      ctx = Elex.new_context()
+      assert {:ok, true, :boolean} = Parser.parse("yes", ctx)
+    end
+
+    test "parses 'no' as boolean false" do
+      ctx = Elex.new_context()
+      assert {:ok, false, :boolean} = Parser.parse("no", ctx)
+    end
   end
 end

@@ -15,7 +15,7 @@ defmodule Elex.InverterTest do
   describe "invert/2" do
     test "inverts addition: value + constant" do
       ast = parse_expression("value + 5")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: value - 5
       assert result == {:-, [{:var, "value"}, Decimal.new("5")]}
@@ -23,7 +23,7 @@ defmodule Elex.InverterTest do
 
     test "inverts addition: constant + value" do
       ast = parse_expression("5 + value")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: value - 5
       assert result == {:-, [{:var, "value"}, Decimal.new("5")]}
@@ -31,7 +31,7 @@ defmodule Elex.InverterTest do
 
     test "inverts subtraction: value - constant" do
       ast = parse_expression("value - 3")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: value + 3
       assert result == {:+, [{:var, "value"}, Decimal.new("3")]}
@@ -39,7 +39,7 @@ defmodule Elex.InverterTest do
 
     test "inverts subtraction: constant - value" do
       ast = parse_expression("10 - value")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: 10 - value (becomes: -value + 10)
       assert result == {:-, [Decimal.new("10"), {:var, "value"}]}
@@ -47,7 +47,7 @@ defmodule Elex.InverterTest do
 
     test "inverts multiplication: value * constant" do
       ast = parse_expression("value * 4")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: value / 4
       assert result == {:/, [{:var, "value"}, Decimal.new("4")]}
@@ -55,7 +55,7 @@ defmodule Elex.InverterTest do
 
     test "inverts multiplication: constant * value" do
       ast = parse_expression("2 * value")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: value / 2
       assert result == {:/, [{:var, "value"}, Decimal.new("2")]}
@@ -63,7 +63,7 @@ defmodule Elex.InverterTest do
 
     test "inverts division: value / constant" do
       ast = parse_expression("value / 2")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: value * 2
       assert result == {:*, [{:var, "value"}, Decimal.new("2")]}
@@ -71,7 +71,7 @@ defmodule Elex.InverterTest do
 
     test "inverts division: constant / value" do
       ast = parse_expression("100 / value")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: 100 / value (becomes: value = 100 / result)
       assert result == {:/, [Decimal.new("100"), {:var, "value"}]}
@@ -79,21 +79,21 @@ defmodule Elex.InverterTest do
 
     test "returns the variable unchanged if expression is just the variable" do
       ast = parse_expression("value")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       assert result == {:var, "value"}
     end
 
     test "returns literal unchanged if expression doesn't contain the variable" do
       ast = Decimal.new("42")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       assert result == Decimal.new("42")
     end
 
     test "handles negative constants correctly" do
       ast = parse_expression("value + -5")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Expected: value - (-5) = value + 5
       assert result == {:-, [{:var, "value"}, Decimal.new("-5")]}
@@ -108,9 +108,8 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("x + y", ctx)
 
-      assert_raise RuntimeError, ~r/Expression contains multiple variables/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Expression contains multiple variables"
     end
 
     test "fails with unsupported operations" do
@@ -121,33 +120,30 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("not x", ctx)
 
-      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Unsupported operation for inversion"
     end
 
     test "fails when target variable not found in expression" do
       ast = parse_expression("value + 5")
 
-      assert_raise RuntimeError, ~r/Target variable 'missing' not found in expression/, fn ->
-        Inverter.invert(ast, "missing")
-      end
+      assert {:error, message} = Inverter.invert(ast, "missing")
+      assert message =~ "Target variable 'missing' not found in expression"
     end
 
     test "fails when trying to divide by zero" do
       # This would be value * 0, which should invert to value / 0
       ast = parse_expression("value * 0")
 
-      assert_raise RuntimeError, ~r/Cannot invert: division by zero/, fn ->
-        Inverter.invert(ast, "value")
-      end
+      assert {:error, message} = Inverter.invert(ast, "value")
+      assert message =~ "Cannot invert: division by zero"
     end
   end
 
   describe "complex expressions (nested operations)" do
     test "handles chained additions: value + 1 + 2" do
       ast = parse_expression("value + 1 + 2")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # This is ((value + 1) + 2), so we solve algebraically:
       # (value + 1) + 2 = result
@@ -160,7 +156,7 @@ defmodule Elex.InverterTest do
 
     test "handles mixed operations: value * 2 + 3" do
       ast = parse_expression("value * 2 + 3")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # This should be: (value - 3) / 2
       expected = {:/, [{:-, [{:var, "value"}, Decimal.new("3")]}, Decimal.new("2")]}
@@ -169,7 +165,7 @@ defmodule Elex.InverterTest do
 
     test "handles order of operations: 2 + value * 3" do
       ast = parse_expression("2 + value * 3")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # This should be: (value - 2) / 3
       expected = {:/, [{:-, [{:var, "value"}, Decimal.new("2")]}, Decimal.new("3")]}
@@ -187,7 +183,7 @@ defmodule Elex.InverterTest do
         })
 
       {:ok, ast, _type} = Parser.parse("value * 9 / 5 + 32", ctx)
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
 
       # Step by step algebra:
       # celsius * 9 / 5 + 32 = fahrenheit
@@ -229,32 +225,31 @@ defmodule Elex.InverterTest do
   describe "edge cases and error handling" do
     test "handles expressions with no variables (returns literal)" do
       ast = Decimal.new("42")
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
       assert result == Decimal.new("42")
     end
 
     test "handles string literals" do
       ast = "hello"
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
       assert result == "hello"
     end
 
     test "handles boolean literals" do
       ast = true
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
       assert result == true
 
       ast = false
-      result = Inverter.invert(ast, "value")
+      {:ok, result} = Inverter.invert(ast, "value")
       assert result == false
     end
 
     test "fails when multiplying by zero on left side" do
       ast = parse_expression("0 * value")
 
-      assert_raise RuntimeError, ~r/Cannot invert: division by zero/, fn ->
-        Inverter.invert(ast, "value")
-      end
+      assert {:error, message} = Inverter.invert(ast, "value")
+      assert message =~ "Cannot invert: division by zero"
     end
 
     test "fails with unsupported comparison operations" do
@@ -265,9 +260,8 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("x > 5", ctx)
 
-      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Unsupported operation for inversion"
     end
 
     test "fails with function calls" do
@@ -278,9 +272,8 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("ceil(x)", ctx)
 
-      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Unsupported operation for inversion"
     end
 
     test "fails with logical operations" do
@@ -292,9 +285,8 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("a and b", ctx)
 
-      assert_raise RuntimeError, ~r/Expression contains multiple variables/, fn ->
-        Inverter.invert(ast, "a")
-      end
+      assert {:error, message} = Inverter.invert(ast, "a")
+      assert message =~ "Expression contains multiple variables"
     end
 
     test "fails with variable on both sides of addition" do
@@ -305,9 +297,8 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("x + x", ctx)
 
-      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Unsupported operation for inversion"
     end
 
     test "fails with variable on both sides of subtraction" do
@@ -318,9 +309,8 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("x - x", ctx)
 
-      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Unsupported operation for inversion"
     end
 
     test "fails with variable on both sides of multiplication" do
@@ -331,9 +321,8 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("x * x", ctx)
 
-      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Unsupported operation for inversion"
     end
 
     test "fails with variable on both sides of division" do
@@ -344,18 +333,16 @@ defmodule Elex.InverterTest do
 
       {:ok, ast, _type} = Parser.parse("x / x", ctx)
 
-      assert_raise RuntimeError, ~r/Unsupported operation for inversion/, fn ->
-        Inverter.invert(ast, "x")
-      end
+      assert {:error, message} = Inverter.invert(ast, "x")
+      assert message =~ "Unsupported operation for inversion"
     end
 
     test "handles zero checks for different zero representations" do
       # Test positive zero
       ast = parse_expression("value * 0.0")
 
-      assert_raise RuntimeError, ~r/Cannot invert: division by zero/, fn ->
-        Inverter.invert(ast, "value")
-      end
+      assert {:error, message} = Inverter.invert(ast, "value")
+      assert message =~ "Cannot invert: division by zero"
     end
   end
 end

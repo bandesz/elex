@@ -51,6 +51,10 @@ defmodule Elex.Functions.MinTest do
                parse("min(3, \"foo\")")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, "variable 'missing' does not exist"} = parse("min(missing, 2)")
+    end
+
     test "wrong number of arguments" do
       assert {:error, "min function expects 2 arguments"} = parse("min(5)")
     end

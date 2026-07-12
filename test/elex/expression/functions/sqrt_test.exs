@@ -44,6 +44,17 @@ defmodule Elex.Functions.SqrtTest do
                parse("sqrt(\"foo\")")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, "variable 'missing' does not exist"} = parse("sqrt(missing)")
+    end
+
+    test "returns evaluation error for negative argument" do
+      ctx = Elex.new_context()
+
+      assert {:error, "Evaluation error: " <> _} =
+               Elex.evaluate("sqrt(-1)", ctx)
+    end
+
     test "wrong number of arguments" do
       assert {:error, "sqrt function expects 1 argument"} = parse("sqrt()")
     end

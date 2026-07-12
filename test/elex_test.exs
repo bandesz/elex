@@ -3,6 +3,7 @@ defmodule ElexTest do
 
   alias Elex
   alias Elex.Variable
+  alias SolidBatch.Test.Support.Elex.TestFunction
 
   describe "new_context/0" do
     test "creates a context with no variables" do
@@ -11,6 +12,19 @@ defmodule ElexTest do
       assert is_map(ctx.functions)
       # Should have standard functions registered
       assert map_size(ctx.functions) > 0
+    end
+
+    test "registers all standard function names" do
+      ctx = Elex.new_context()
+
+      names =
+        ctx.functions
+        |> Map.keys()
+        |> Enum.map(fn {name, _arity} -> name end)
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      assert names == ["ceil", "floor", "if", "max", "min", "pi", "rem", "round", "sqrt"]
     end
   end
 
@@ -60,13 +74,20 @@ defmodule ElexTest do
       assert {:error, _reason} = Elex.evaluate("undefined_var + 5", ctx)
     end
 
-    test "handles runtime errors" do
+    test "returns error on division by zero" do
       ctx = Elex.new_context()
-      # Division by zero raises Decimal.Error, not caught by evaluate
-      # This test verifies that Decimal errors propagate
-      assert_raise Decimal.Error, fn ->
-        Elex.evaluate("10 / 0", ctx)
-      end
+      assert {:error, "Evaluation error: " <> _} = Elex.evaluate("10 / 0", ctx)
+    end
+
+    test "returns an error tuple when a function raises a RuntimeError" do
+      ctx = %{
+        Elex.new_context()
+        | functions: %{{"test_func", 1} => TestFunction}
+      }
+
+      assert {:error, reason} = Elex.evaluate("test_func(666)", ctx)
+      assert reason =~ "Evaluation error:"
+      assert reason =~ "Simulated function error"
     end
   end
 
@@ -97,6 +118,11 @@ defmodule ElexTest do
         |> Elex.add_variable("x", 10)
 
       assert {:ok, :decimal} = Elex.validate("x + 5", ctx)
+    end
+
+    test "returns error when a reserved keyword is used as a variable" do
+      ctx = Elex.new_context()
+      assert {:error, "variable 'and' is a reserved keyword"} = Elex.validate("and", ctx)
     end
   end
 

@@ -51,6 +51,17 @@ defmodule Elex.Functions.RemTest do
                parse("rem(3, \"foo\")")
     end
 
+    test "propagates nested validation errors" do
+      assert {:error, "variable 'missing' does not exist"} = parse("rem(missing, 2)")
+    end
+
+    test "returns evaluation error when dividing by zero" do
+      ctx = Elex.new_context()
+
+      assert {:error, "Evaluation error: " <> _} =
+               Elex.evaluate("rem(10, 0)", ctx)
+    end
+
     test "wrong number of arguments" do
       assert {:error, "rem function expects 2 arguments"} = parse("rem(5)")
     end

@@ -98,4 +98,27 @@ defmodule Elex.ValidatorTest do
                Validator.validate({:func, "test_func", 2, [Decimal.new(1), Decimal.new(2)]}, ctx)
     end
   end
+
+  describe "validate/2 variables and literals" do
+    test "rejects a reserved keyword used as a variable name" do
+      ctx = Elex.new_context()
+
+      assert {:error, "variable 'and' is a reserved keyword"} =
+               Validator.validate({:var, "and"}, ctx)
+    end
+
+    test "validates a decimal literal directly" do
+      ctx = Elex.new_context()
+      assert {:ok, :decimal} = Validator.validate(Decimal.new("1.5"), ctx)
+    end
+  end
+
+  describe "validate/2 not operator" do
+    test "returns error with human-readable label for non-boolean operand" do
+      ctx = Elex.new_context()
+
+      assert {:error, "not operator can not be used on number value"} =
+               Validator.validate({:not, Decimal.new(1)}, ctx)
+    end
+  end
 end
