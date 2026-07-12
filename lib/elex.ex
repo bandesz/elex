@@ -35,7 +35,9 @@ defmodule Elex do
 
   @standard_functions [
     Elex.Functions.Abs,
+    Elex.Functions.Between,
     Elex.Functions.Ceil,
+    Elex.Functions.Clamp,
     Elex.Functions.Floor,
     Elex.Functions.If,
     Elex.Functions.Max,

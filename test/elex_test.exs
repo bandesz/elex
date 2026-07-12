@@ -26,7 +26,9 @@ defmodule ElexTest do
 
       assert names == [
                "abs",
+               "between",
                "ceil",
+               "clamp",
                "floor",
                "if",
                "max",
