@@ -3,7 +3,7 @@ defmodule Elex.ParserTest do
 
   alias Elex.{Parser, Variable}
 
-  doctest Elex.Parser, only: [debug: 1]
+  doctest Elex.Parser, only: [debug: 2]
 
   describe "debug/1" do
     test "returns the parsed AST and empty rest on success" do
@@ -40,6 +40,52 @@ defmodule Elex.ParserTest do
       assert info.rest == "( 1 + 2"
       assert info.consumed == ""
       assert info.byte_offset == 0
+    end
+
+    test "rejects expressions deeper than the default limit before parsing" do
+      expression = nest("1", 17)
+      info = Parser.debug(expression)
+
+      assert %{
+               status: :error,
+               reason: "expression is nested too deeply (maximum depth is 16)",
+               ast: nil,
+               rest: ^expression,
+               consumed: "",
+               byte_offset: 0,
+               line: 1,
+               column: 0,
+               expression: ^expression
+             } = info
+    end
+
+    test "honours a custom :max_depth option" do
+      assert %{status: :ok} = Parser.debug(nest("1", 3), max_depth: 3)
+
+      info = Parser.debug(nest("1", 4), max_depth: 3)
+      assert info.status == :error
+      assert info.reason == "expression is nested too deeply (maximum depth is 3)"
+    end
+
+    test "rejects any nesting when :max_depth is 0" do
+      info = Parser.debug("(1)", max_depth: 0)
+      assert info.status == :error
+      assert info.reason == "expression is nested too deeply (maximum depth is 0)"
+    end
+
+    test "returns an error map for an invalid :max_depth" do
+      for bad <- [-1, "16", nil, 1.5] do
+        info = Parser.debug("1 + 2", max_depth: bad)
+
+        assert %{
+                 status: :error,
+                 reason: "invalid max_depth: must be a non-negative integer",
+                 ast: nil,
+                 consumed: "",
+                 byte_offset: 0,
+                 expression: "1 + 2"
+               } = info
+      end
     end
   end
 
@@ -200,6 +246,74 @@ defmodule Elex.ParserTest do
     test "a group led by a reserved operator is not a function argument list", %{ctx: ctx} do
       assert_message("not (a b)", "unexpected 'b'", ctx)
       assert_message("not (2 3)", "unexpected '3'", ctx)
+    end
+  end
+
+  describe "parse/3 nesting depth guard" do
+    setup do
+      %{ctx: Elex.new_context()}
+    end
+
+    defp nest(inner, depth),
+      do: String.duplicate("(", depth) <> inner <> String.duplicate(")", depth)
+
+    test "parses expressions at the default depth limit", %{ctx: ctx} do
+      assert {:ok, _, nil} = Parser.parse(nest("1", 16), ctx, validate: false)
+    end
+
+    test "rejects expressions deeper than the default limit before parsing", %{ctx: ctx} do
+      assert {:error, "expression is nested too deeply (maximum depth is 16)"} =
+               Parser.parse(nest("1", 17), ctx, validate: false)
+    end
+
+    test "rejects deep input quickly instead of parsing it", %{ctx: ctx} do
+      # A depth that would take seconds to parse must be rejected near-instantly
+      # by the linear pre-scan rather than reaching the exponential parser.
+      {microseconds, result} =
+        :timer.tc(fn -> Parser.parse(nest("1", 40), ctx, validate: false) end)
+
+      assert {:error, "expression is nested too deeply (maximum depth is 16)"} = result
+      assert microseconds < 100_000
+    end
+
+    test "honours a custom :max_depth option", %{ctx: ctx} do
+      assert {:ok, _, nil} = Parser.parse(nest("1", 3), ctx, validate: false, max_depth: 3)
+
+      assert {:error, "expression is nested too deeply (maximum depth is 3)"} =
+               Parser.parse(nest("1", 4), ctx, validate: false, max_depth: 3)
+    end
+
+    test "counts function-call parentheses toward the depth", %{ctx: ctx} do
+      assert {:error, "expression is nested too deeply (maximum depth is 2)"} =
+               Parser.parse("max(min(sqrt(1)))", ctx, validate: false, max_depth: 2)
+    end
+
+    test "ignores parentheses inside string literals", %{ctx: ctx} do
+      assert {:ok, "((((()))))", nil} =
+               Parser.parse(~s["((((()))))"], ctx, validate: false, max_depth: 1)
+    end
+
+    test "rejects any nesting when max_depth is 0", %{ctx: ctx} do
+      assert {:ok, _, nil} = Parser.parse("1", ctx, validate: false, max_depth: 0)
+
+      assert {:error, "expression is nested too deeply (maximum depth is 0)"} =
+               Parser.parse("(1)", ctx, validate: false, max_depth: 0)
+    end
+
+    test "treats sibling groups by their own depth, not their sum", %{ctx: ctx} do
+      # Two groups at the same level each reach depth 1, so `max_depth: 1`
+      # accepts them: depth is the maximum nesting, not a running total.
+      assert {:ok, _, nil} = Parser.parse("(1) + (2)", ctx, validate: false, max_depth: 1)
+
+      assert {:error, "expression is nested too deeply (maximum depth is 1)"} =
+               Parser.parse("((1)) + (2)", ctx, validate: false, max_depth: 1)
+    end
+
+    test "rejects an invalid max_depth instead of disabling the guard", %{ctx: ctx} do
+      for bad <- [-1, "16", nil, 1.5] do
+        assert {:error, "invalid max_depth: must be a non-negative integer"} =
+                 Parser.parse(nest("1", 40), ctx, validate: false, max_depth: bad)
+      end
     end
   end
 

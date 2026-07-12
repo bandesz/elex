@@ -39,6 +39,13 @@ defmodule Elex.Parser do
   alias Elex.Parser.ErrorFormatter
   alias Elex.Validator
 
+  # Maximum parenthesis/function-call nesting depth accepted by `parse/3`.
+  # The grammar backtracks, so parse time grows exponentially with nesting
+  # depth (a few dozen nested parentheses take seconds); this bound stops a
+  # tiny but deeply nested input from exhausting CPU. Overridable per call via
+  # the `:max_depth` option.
+  @default_max_depth 16
+
   ws = repeat(ascii_char([?\s, ?\t])) |> label("whitespace")
   ws_req = times(ascii_char([?\s, ?\t]), min: 1) |> label("whitespace")
 
@@ -289,6 +296,15 @@ defmodule Elex.Parser do
 
   Use [`parse/3`](`parse/3`) for normal parsing.
 
+  ## Options
+
+  - `:max_depth` - Maximum parenthesis/function-call nesting depth. Expressions
+    nested more deeply are rejected before parsing (mirroring [`parse/3`](`parse/3`)),
+    guarding against resource exhaustion from pathologically nested input. The
+    returned map has `status: :error` with the same reason [`parse/3`](`parse/3`)
+    reports. Must be a non-negative integer; an invalid value yields an error map
+    rather than silently disabling the guard. Defaults to `#{@default_max_depth}`.
+
   ## Returns
 
   A [`debug_info`](`t:debug_info/0`) map. See its documentation for the fields.
@@ -308,8 +324,23 @@ defmodule Elex.Parser do
       ""
 
   """
-  @spec debug(String.t()) :: debug_info()
-  def debug(expression) when is_binary(expression) do
+  @spec debug(String.t(), keyword()) :: debug_info()
+  def debug(expression, opts \\ []) when is_binary(expression) do
+    max_depth = Keyword.get(opts, :max_depth, @default_max_depth)
+
+    cond do
+      not valid_max_depth?(max_depth) ->
+        build_debug_info(expression, :error, nil, invalid_max_depth_reason(), expression, 1, 0, 0)
+
+      deeper_than?(expression, max_depth) ->
+        build_debug_info(expression, :error, nil, too_deep_reason(max_depth), expression, 1, 0, 0)
+
+      true ->
+        debug_parse(expression)
+    end
+  end
+
+  defp debug_parse(expression) do
     case do_parse(expression) do
       {:ok, [ast], rest, _ctx, {line, column}, byte_offset} ->
         build_debug_info(expression, :ok, ast, nil, rest, line, column, byte_offset)
@@ -346,6 +377,10 @@ defmodule Elex.Parser do
 
   - `:validate` - Whether to validate the AST against the context. Defaults to `true`.
     When `false`, the returned type is `nil`.
+  - `:max_depth` - Maximum parenthesis/function-call nesting depth. Expressions
+    nested more deeply are rejected with an error before parsing, guarding
+    against resource exhaustion from pathologically nested input. Defaults to
+    `#{@default_max_depth}`.
 
   ## Returns
 
@@ -365,7 +400,31 @@ defmodule Elex.Parser do
   @spec parse(String.t(), Context.t(), keyword()) :: {:ok, term(), atom()} | {:error, String.t()}
   def parse(expression, context, opts \\ []) do
     validate? = Keyword.get(opts, :validate, true)
+    max_depth = Keyword.get(opts, :max_depth, @default_max_depth)
 
+    cond do
+      not valid_max_depth?(max_depth) ->
+        {:error, invalid_max_depth_reason()}
+
+      deeper_than?(expression, max_depth) ->
+        {:error, too_deep_reason(max_depth)}
+
+      true ->
+        parse_and_validate(expression, context, validate?)
+    end
+  end
+
+  # `max_depth` must be a non-negative integer; anything else (a negative
+  # integer, a string, `nil`, ...) is rejected rather than silently disabling
+  # the nesting guard.
+  defp valid_max_depth?(value), do: is_integer(value) and value >= 0
+
+  defp invalid_max_depth_reason, do: "invalid max_depth: must be a non-negative integer"
+
+  defp too_deep_reason(max_depth),
+    do: "expression is nested too deeply (maximum depth is #{max_depth})"
+
+  defp parse_and_validate(expression, context, validate?) do
     case do_parse(expression) do
       {:ok, [ast], "", _, _, _} ->
         validate_or_return_ast(ast, context, validate?)
@@ -386,6 +445,38 @@ defmodule Elex.Parser do
   end
 
   defp validate_or_return_ast(ast, _context, false), do: {:ok, ast, nil}
+
+  # Cheap O(n) scan of the maximum parenthesis nesting depth, returning `true`
+  # as soon as `limit` is exceeded so it never walks the whole input needlessly.
+  # Parentheses inside string literals are ignored (matching the grammar's
+  # string handling); delimiters are ASCII, so scanning by byte is safe for
+  # UTF-8 input.
+  defp deeper_than?(expression, limit), do: deeper_than?(expression, limit, 0, false)
+
+  defp deeper_than?(<<>>, _limit, _depth, _in_string), do: false
+
+  # Inside a string literal the parser only recognises `\"` as an escape (see
+  # the `escaped_quote` combinator); any other backslash is an ordinary char
+  # that keeps the string open, so it is handled by the generic clause below.
+  defp deeper_than?(<<?\\, ?", rest::binary>>, limit, depth, true),
+    do: deeper_than?(rest, limit, depth, true)
+
+  defp deeper_than?(<<?", rest::binary>>, limit, depth, in_string),
+    do: deeper_than?(rest, limit, depth, not in_string)
+
+  defp deeper_than?(<<_char, rest::binary>>, limit, depth, true),
+    do: deeper_than?(rest, limit, depth, true)
+
+  defp deeper_than?(<<?(, _rest::binary>>, limit, depth, false) when depth + 1 > limit, do: true
+
+  defp deeper_than?(<<?(, rest::binary>>, limit, depth, false),
+    do: deeper_than?(rest, limit, depth + 1, false)
+
+  defp deeper_than?(<<?), rest::binary>>, limit, depth, false),
+    do: deeper_than?(rest, limit, max(depth - 1, 0), false)
+
+  defp deeper_than?(<<_char, rest::binary>>, limit, depth, false),
+    do: deeper_than?(rest, limit, depth, false)
 
   # NimbleParsec discards how far it got inside a failed `choice`/`repeat`, so a
   # malformed sub-expression nested inside a group or argument list surfaces at
