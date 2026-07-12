@@ -10,7 +10,7 @@ Elex is a powerful expression language library for Elixir that provides parsing,
 - **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=`
 - **Logical Operations**: `and`, `or`, `not`
 - **Variables**: Dynamic variable substitution
-- **Functions**: Built-in functions (`max`, `min`, `ceil`, `floor`, `round`, `sqrt`, `rem`, `if`, `pi`)
+- **Functions**: Built-in functions (`max`, `min`, `ceil`, `floor`, `round`, `sqrt`, `rem`, `if`, `pi`) and custom functions via `Elex.Function`
 - **Type System**: Static type checking and validation
 - **Decimal Precision**: Uses `Decimal` for accurate arithmetic
 - **Expression Inversion**: Solve for variables in simple expressions
@@ -68,35 +68,51 @@ Elex.evaluate("no", Elex.new_context())   # alias for false
 Elex.evaluate("\"hello\"", Elex.new_context())
 ```
 
+### Variables
+
+Variable names must start with a lowercase letter and may contain letters, digits, and underscores. The words `and`, `or`, and `not` are reserved and cannot be used as variable names.
+
+```elixir
+context =
+  Elex.new_context()
+  |> Elex.add_variable("price", 100)
+  |> Elex.add_variable("tax_rate", 0.08)
+
+{:ok, result} = Elex.evaluate("price * (1 + tax_rate)", context)
+# result => #Decimal<108>
+```
+
 ### Arithmetic
 
 ```elixir
 context = Elex.new_context()
 
-Elex.evaluate("10 + 5", context)   # => 15
-Elex.evaluate("10 - 5", context)   # => 5
-Elex.evaluate("10 * 5", context)   # => 50
-Elex.evaluate("10 / 5", context)   # => 2
-Elex.evaluate("2 + 3 * 4", context) # => 14 (respects precedence)
+{:ok, result} = Elex.evaluate("10 + 5", context)   # => #Decimal<15>
+{:ok, result} = Elex.evaluate("10 - 5", context)   # => #Decimal<5>
+{:ok, result} = Elex.evaluate("10 * 5", context)   # => #Decimal<50>
+{:ok, result} = Elex.evaluate("10 / 5", context)   # => #Decimal<2>
+{:ok, result} = Elex.evaluate("2 + 3 * 4", context) # => #Decimal<14> (respects precedence)
 ```
+
+> **Note:** `Elex.evaluate/2` returns `{:ok, result}` on success or `{:error, reason}` on failure. Arithmetic operations use `Decimal` and return `Decimal` values.
 
 ### Comparisons
 
 ```elixir
-Elex.evaluate("10 > 5", Elex.new_context())   # => true
-Elex.evaluate("10 < 5", Elex.new_context())   # => false
-Elex.evaluate("10 >= 10", Elex.new_context()) # => true
-Elex.evaluate("10 <= 5", Elex.new_context())  # => false
-Elex.evaluate("10 == 10", Elex.new_context()) # => true
-Elex.evaluate("10 != 5", Elex.new_context())  # => true
+{:ok, true} = Elex.evaluate("10 > 5", Elex.new_context())
+{:ok, false} = Elex.evaluate("10 < 5", Elex.new_context())
+{:ok, true} = Elex.evaluate("10 >= 10", Elex.new_context())
+{:ok, false} = Elex.evaluate("10 <= 5", Elex.new_context())
+{:ok, true} = Elex.evaluate("10 == 10", Elex.new_context())
+{:ok, true} = Elex.evaluate("10 != 5", Elex.new_context())
 ```
 
 ### Logical Operations
 
 ```elixir
-Elex.evaluate("true and false", Elex.new_context()) # => false
-Elex.evaluate("true or false", Elex.new_context())  # => true
-Elex.evaluate("not true", Elex.new_context())       # => false
+{:ok, false} = Elex.evaluate("true and false", Elex.new_context())
+{:ok, true} = Elex.evaluate("true or false", Elex.new_context())
+{:ok, false} = Elex.evaluate("not true", Elex.new_context())
 ```
 
 ### Functions
@@ -104,15 +120,15 @@ Elex.evaluate("not true", Elex.new_context())       # => false
 ```elixir
 context = Elex.new_context()
 
-Elex.evaluate("max(10, 20)", context)      # => 20
-Elex.evaluate("min(10, 20)", context)      # => 10
-Elex.evaluate("ceil(3.2)", context)        # => 4
-Elex.evaluate("floor(3.8)", context)       # => 3
-Elex.evaluate("round(3.5)", context)       # => 4
-Elex.evaluate("sqrt(16)", context)         # => 4
-Elex.evaluate("rem(10, 3)", context)       # => 1
-Elex.evaluate("pi()", context)             # => 3.141592653589793
-Elex.evaluate("if(10 > 5, 1, 0)", context) # => 1
+{:ok, result} = Elex.evaluate("max(10, 20)", context)      # => #Decimal<20>
+{:ok, result} = Elex.evaluate("min(10, 20)", context)      # => #Decimal<10>
+{:ok, result} = Elex.evaluate("ceil(3.2)", context)        # => #Decimal<4>
+{:ok, result} = Elex.evaluate("floor(3.8)", context)       # => #Decimal<3>
+{:ok, result} = Elex.evaluate("round(3.5)", context)       # => #Decimal<4>
+{:ok, result} = Elex.evaluate("sqrt(16)", context)         # => #Decimal<4>
+{:ok, result} = Elex.evaluate("rem(10, 3)", context)       # => #Decimal<1>
+{:ok, result} = Elex.evaluate("pi()", context)             # => #Decimal<3.141592653589793238462643383279502884197169399375105820974>
+{:ok, result} = Elex.evaluate("if(10 > 5, 1, 0)", context) # => #Decimal<1>
 ```
 
 ## Ash Integration
@@ -127,10 +143,6 @@ defmodule MyApp.Resource do
     attribute :formula, :string do
       allow_nil? false
     end
-
-    attribute :expected_type, :atom do
-      constraints [one_of: [:decimal, :boolean, :string]]
-    end
   end
 
   validations do
@@ -142,6 +154,8 @@ defmodule MyApp.Resource do
 end
 ```
 
+The `expected_type` option accepts `:decimal`, `:boolean`, or `:string`. Use `add_value_type_from_attribute` to inject a `value` variable typed from another attribute — useful when validating formulas that reference the current value.
+
 ## Expression Inversion
 
 Elex can invert simple arithmetic expressions to solve for a variable:
@@ -151,10 +165,38 @@ alias Elex.{Parser, Inverter}
 
 context = Elex.new_context()
 {:ok, ast, _type} = Parser.parse("value * 2 + 5", context, validate: false)
-inverted_ast = Inverter.invert(ast, "value")
+{:ok, inverted_ast} = Inverter.invert(ast, "value")
 
 # The inverted expression solves for "value":
 # value = (result - 5) / 2
+```
+
+## Custom Functions
+
+Implement the `Elex.Function` behaviour and register your module with `Elex.Context.add_function/2`:
+
+```elixir
+defmodule MyApp.Functions.Double do
+  @behaviour Elex.Function
+
+  @impl true
+  def signature, do: %{name: :double, arity: 1}
+
+  @impl true
+  def validate([arg], ctx), do: Elex.Validator.validate(arg, ctx)
+
+  @impl true
+  def call([arg]), do: {:ok, Decimal.mult(arg, Decimal.new(2))}
+
+  @impl true
+  def documentation, do: %{signature: "double(x)", description: "doubles a number"}
+end
+
+context =
+  Elex.new_context()
+  |> Elex.Context.add_function(MyApp.Functions.Double)
+
+{:ok, result} = Elex.evaluate("double(5)", context)
 ```
 
 ## Development
@@ -200,23 +242,7 @@ mix sobelow        # Run security analysis
 
 ## License
 
-Copyright (c) 2025
+Copyright (c) 2025 bandesz
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+See [LICENSE](LICENSE) for details.
 
