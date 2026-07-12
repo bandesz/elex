@@ -17,13 +17,20 @@ defmodule Elex.Parser do
 
   - `or`
   - `and`
-  - `==`, `!=`, `<`, `>`, `<=`, `>=`
+  - `==`, `!=`, `<`, `>`, `<=`, `>=` (operands must share a type; strings use lexicographic order)
   - `+`, `-`
   - `*`, `/`, `%`
   - `not` (unary)
   - `-` (unary)
 
-  **Functions:** `name(arg1, arg2)` — see built-in modules under `Elex.Functions.*`
+  **Functions:** `name(arg1, arg2)` — built-ins include `abs`, `between`, `ceil`,
+  `clamp`, `coalesce`, `concat`, `contains`, `ends_with`, `floor`, `if`,
+  `length`, `lower`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`, `sqrt`,
+  `starts_with`, `trim`, and `upper`. `min`, `max`, and `coalesce` accept two
+  or more arguments. See modules under `Elex.Functions.*`.
+
+  **Short-circuit:** `and`, `or`, and `if(condition, a, b)` skip evaluating
+  operands or branches that cannot affect the result.
 
   Parentheses group sub-expressions: `(1 + 2) * 3`
 

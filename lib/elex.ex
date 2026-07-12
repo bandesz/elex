@@ -4,10 +4,16 @@ defmodule Elex do
 
   It supports:
 
-  - Arithmetic operations (`+`, `-`, `*`, `/`)
-  - Comparison operators (`<`, `>`, `<=`, `>=`, `==`, `!=`)
-  - Boolean operations (`and`, `or`, `not`)
-  - Variables and built-in functions
+  - Arithmetic operations (`+`, `-`, `*`, `/`, `%`) and unary minus
+  - Comparison operators (`<`, `>`, `<=`, `>=`, `==`, `!=`) for decimals,
+    booleans, strings, and `null`
+  - Boolean operations (`and`, `or`, `not`) with short-circuit evaluation
+  - Literals: decimals, booleans (`true`/`false`, `yes`/`no`), strings, `null`
+  - Variables and built-in functions (`abs`, `between`, `ceil`, `clamp`,
+    `coalesce`, `concat`, `contains`, `ends_with`, `floor`, `if`, `length`,
+    `lower`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`, `sqrt`,
+    `starts_with`, `trim`, `upper`)
+  - Variadic `min`, `max`, and `coalesce` (two or more arguments)
   - Type checking and validation
 
   ## Quick start

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Unary minus operator (`-x`, `-(1 + 2)`)
+- Modulo operator (`%`) with `*`-level precedence
+- `null` literal with equality comparisons to `null` and nil variables
+- String ordering comparisons (`<`, `>`, `<=`, `>=`) for string operands
+- Short-circuit evaluation for `and`, `or`, and `if(condition, a, b)`
+- Math functions: `abs`, `pow`, `mod`, `clamp`, `between`
+- Variadic `min` and `max` (two or more arguments)
+- String functions: `concat`, `length`, `contains`, `starts_with`, `ends_with`, `lower`, `upper`, `trim`
+- `coalesce` function (variadic; returns the first non-null argument)
+
 ## [0.1.0] - 2025-07-12
 
 ### Changed

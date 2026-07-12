@@ -6,11 +6,12 @@ Elex is a powerful expression language library for Elixir that provides parsing,
 
 ## Features
 
-- **Arithmetic Operations**: `+`, `-`, `*`, `/`
-- **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=`
-- **Logical Operations**: `and`, `or`, `not`
+- **Arithmetic Operations**: `+`, `-`, `*`, `/`, `%` (modulo), unary `-`
+- **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=` (numbers and strings)
+- **Logical Operations**: `and`, `or`, `not` (with short-circuit evaluation)
+- **Literals**: Decimal numbers, booleans (`true`/`false`, `yes`/`no`), strings, and `null`
 - **Variables**: Dynamic variable substitution
-- **Functions**: Built-in functions (`max`, `min`, `ceil`, `floor`, `round`, `sqrt`, `rem`, `if`, `pi`) and custom functions via `Elex.Function`
+- **Functions**: Built-in math, string, and utility functions (see [Functions](#functions)) and custom functions via `Elex.Function`
 - **Type System**: Static type checking and validation
 - **Decimal Precision**: Uses `Decimal` for accurate arithmetic
 - **Expression Inversion**: Solve for variables in simple expressions
@@ -66,7 +67,12 @@ Elex.evaluate("no", Elex.new_context())   # alias for false
 
 # Strings
 Elex.evaluate("\"hello\"", Elex.new_context())
+
+# Null
+Elex.evaluate("null", Elex.new_context())
 ```
+
+`null` compares equal only to `null` or `nil` variables (`null == null`, `x == null` when `x` is nil). It cannot be compared to numbers, booleans, or strings.
 
 ### Variables
 
@@ -91,10 +97,13 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate("10 - 5", context)   # => #Decimal<5>
 {:ok, result} = Elex.evaluate("10 * 5", context)   # => #Decimal<50>
 {:ok, result} = Elex.evaluate("10 / 5", context)   # => #Decimal<2>
+{:ok, result} = Elex.evaluate("10 % 3", context)   # => #Decimal<1>
 {:ok, result} = Elex.evaluate("2 + 3 * 4", context) # => #Decimal<14> (respects precedence)
+{:ok, result} = Elex.evaluate("-5", context)       # => #Decimal<-5> (unary minus)
+{:ok, result} = Elex.evaluate("-(1 + 2)", context) # => #Decimal<-3>
 ```
 
-> **Note:** `Elex.evaluate/2` returns `{:ok, result}` on success or `{:error, reason}` on failure. Arithmetic operations use `Decimal` and return `Decimal` values.
+> **Note:** `Elex.evaluate/2` returns `{:ok, result}` on success or `{:error, reason}` on failure. Arithmetic operations use `Decimal` and return `Decimal` values. The `%` operator has the same precedence as `*` and `/`.
 
 ### Comparisons
 
@@ -105,7 +114,13 @@ context = Elex.new_context()
 {:ok, false} = Elex.evaluate("10 <= 5", Elex.new_context())
 {:ok, true} = Elex.evaluate("10 == 10", Elex.new_context())
 {:ok, true} = Elex.evaluate("10 != 5", Elex.new_context())
+
+# String ordering (lexicographic)
+{:ok, true} = Elex.evaluate(~s["a" < "b"], Elex.new_context())
+{:ok, true} = Elex.evaluate(~s["b" >= "a"], Elex.new_context())
 ```
+
+Comparison operands must have the same type (decimal, boolean, string, or null).
 
 ### Logical Operations
 
@@ -115,20 +130,74 @@ context = Elex.new_context()
 {:ok, false} = Elex.evaluate("not true", Elex.new_context())
 ```
 
+`and`, `or`, and `if(condition, a, b)` use short-circuit evaluation: the right-hand operand (or unselected branch) is not evaluated when its result cannot change the outcome. This avoids errors such as division by zero in guard expressions:
+
+```elixir
+{:ok, false} = Elex.evaluate("false and (1 / 0 > 0)", Elex.new_context())
+{:ok, true} = Elex.evaluate("true or (1 / 0 > 0)", Elex.new_context())
+{:ok, result} = Elex.evaluate("if(false, 1 / 0, 2)", Elex.new_context()) # => #Decimal<2>
+```
+
 ### Functions
+
+#### Math
+
+| Function | Description |
+|----------|-------------|
+| `abs(x)` | Absolute value |
+| `ceil(x)`, `floor(x)`, `round(x)` | Rounding |
+| `sqrt(x)` | Square root |
+| `pow(base, exp)` | Exponentiation |
+| `rem(a, b)`, `mod(a, b)` | Remainder of `a` divided by `b` |
+| `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers (variadic) |
+| `clamp(x, min, max)` | Clamp `x` to an inclusive range |
+| `between(x, low, high)` | `true` when `x` is in the inclusive range |
+| `pi()` | Mathematical constant π |
+| `if(cond, a, b)` | Conditional (short-circuits; branches must share a type) |
 
 ```elixir
 context = Elex.new_context()
 
-{:ok, result} = Elex.evaluate("max(10, 20)", context)      # => #Decimal<20>
-{:ok, result} = Elex.evaluate("min(10, 20)", context)      # => #Decimal<10>
-{:ok, result} = Elex.evaluate("ceil(3.2)", context)        # => #Decimal<4>
-{:ok, result} = Elex.evaluate("floor(3.8)", context)       # => #Decimal<3>
-{:ok, result} = Elex.evaluate("round(3.5)", context)       # => #Decimal<4>
-{:ok, result} = Elex.evaluate("sqrt(16)", context)         # => #Decimal<4>
-{:ok, result} = Elex.evaluate("rem(10, 3)", context)       # => #Decimal<1>
-{:ok, result} = Elex.evaluate("pi()", context)             # => #Decimal<3.141592653589793238462643383279502884197169399375105820974>
-{:ok, result} = Elex.evaluate("if(10 > 5, 1, 0)", context) # => #Decimal<1>
+{:ok, result} = Elex.evaluate("max(10, 20)", context)           # => #Decimal<20>
+{:ok, result} = Elex.evaluate("max(3, 7, 9)", context)         # => #Decimal<9>
+{:ok, result} = Elex.evaluate("min(10, 20)", context)          # => #Decimal<10>
+{:ok, result} = Elex.evaluate("abs(-5)", context)              # => #Decimal<5>
+{:ok, result} = Elex.evaluate("pow(2, 3)", context)             # => #Decimal<8>
+{:ok, result} = Elex.evaluate("mod(10, 3)", context)            # => #Decimal<1>
+{:ok, result} = Elex.evaluate("clamp(15, 0, 10)", context)     # => #Decimal<10>
+{:ok, result} = Elex.evaluate("between(5, 0, 10)", context)   # => true
+{:ok, result} = Elex.evaluate("ceil(3.2)", context)            # => #Decimal<4>
+{:ok, result} = Elex.evaluate("floor(3.8)", context)           # => #Decimal<3>
+{:ok, result} = Elex.evaluate("round(3.5)", context)           # => #Decimal<4>
+{:ok, result} = Elex.evaluate("sqrt(16)", context)              # => #Decimal<4>
+{:ok, result} = Elex.evaluate("rem(10, 3)", context)           # => #Decimal<1>
+{:ok, result} = Elex.evaluate("pi()", context)                  # => #Decimal<3.14159…>
+{:ok, result} = Elex.evaluate("if(10 > 5, 1, 0)", context)    # => #Decimal<1>
+```
+
+#### Strings
+
+| Function | Description |
+|----------|-------------|
+| `concat(a, b)` | Concatenate two strings |
+| `length(s)` | String length (character count) |
+| `contains(haystack, needle)` | Substring search |
+| `starts_with(s, prefix)`, `ends_with(s, suffix)` | Prefix/suffix test |
+| `lower(s)`, `upper(s)`, `trim(s)` | Case and whitespace transforms |
+| `coalesce(a, b, …)` | First non-null argument (variadic; short-circuits) |
+
+```elixir
+context = Elex.new_context()
+
+{:ok, result} = Elex.evaluate(~s[concat("hello", " world")], context)     # => "hello world"
+{:ok, result} = Elex.evaluate(~s[length("abc")], context)                  # => #Decimal<3>
+{:ok, result} = Elex.evaluate(~s[contains("hello", "ell")], context)       # => true
+{:ok, result} = Elex.evaluate(~s[starts_with("hello", "he")], context)     # => true
+{:ok, result} = Elex.evaluate(~s[ends_with("hello", "lo")], context)        # => true
+{:ok, result} = Elex.evaluate(~s[lower("ABC")], context)                      # => "abc"
+{:ok, result} = Elex.evaluate(~s[upper("abc")], context)                   # => "ABC"
+{:ok, result} = Elex.evaluate(~s[trim("  x  ")], context)                   # => "x"
+{:ok, result} = Elex.evaluate("coalesce(null, 5)", context)                  # => #Decimal<5>
 ```
 
 ## Ash Integration
