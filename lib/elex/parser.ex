@@ -9,7 +9,7 @@ defmodule Elex.Parser do
   ## Syntax overview
 
   **Literals:** decimal numbers (`3.14`, `-5`), booleans (`true`, `false`, `yes`, `no`),
-  strings (`"hello"`)
+  null (`null`), strings (`"hello"`)
 
   **Variables:** lowercase identifiers (`x`, `my_var`)
 
@@ -59,6 +59,12 @@ defmodule Elex.Parser do
     ])
     |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
     |> label("boolean")
+
+  literal_null =
+    string("null")
+    |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
+    |> replace(nil)
+    |> label("null")
 
   literal_decimal =
     optional(string("-"))
@@ -156,6 +162,7 @@ defmodule Elex.Parser do
       |> ignore(ascii_char([?)])),
       literal_decimal,
       literal_boolean,
+      literal_null,
       literal_string,
       variable,
       function_call

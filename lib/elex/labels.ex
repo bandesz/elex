@@ -42,5 +42,6 @@ defmodule Elex.Labels do
   def label(:decimal), do: "number"
   def label(:string), do: "text"
   def label(:boolean), do: "yes/no"
+  def label(nil), do: "empty"
   def label(:unknown), do: "value"
 end

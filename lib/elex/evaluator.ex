@@ -50,6 +50,8 @@ defmodule Elex.Evaluator do
 
   def evaluate(val, _ctx) when is_binary(val), do: val
 
+  def evaluate(nil, _ctx), do: nil
+
   def evaluate({:not, ast}, ctx) do
     case evaluate(ast, ctx) do
       v when is_boolean(v) ->

@@ -17,7 +17,7 @@ defmodule Elex.Validator do
   alias Elex.Context
   import Elex.Labels
 
-  @reserved_keywords ["and", "or", "not"]
+  @reserved_keywords ["and", "or", "not", "null"]
 
   @doc """
   Validates an expression AST against a context.
@@ -49,6 +49,8 @@ defmodule Elex.Validator do
   def validate(val, _ctx) when is_boolean(val), do: {:ok, :boolean}
 
   def validate(val, _ctx) when is_binary(val), do: {:ok, :string}
+
+  def validate(nil, _ctx), do: {:ok, nil}
 
   def validate({:not, ast}, ctx) do
     case validate(ast, ctx) do
@@ -234,7 +236,7 @@ defmodule Elex.Validator do
   defp validate_equality_op(op, a, b, ctx) do
     case [validate(a, ctx), validate(b, ctx)] do
       [{:ok, type1}, {:ok, type2}]
-      when type1 == type2 and type1 in [:decimal, :boolean, :string] ->
+      when type1 == type2 and type1 in [:decimal, :boolean, :string, nil] ->
         {:ok, :boolean}
 
       [{:ok, type1}, {:ok, type2}] ->

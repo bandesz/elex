@@ -342,4 +342,16 @@ defmodule Elex.ParserTest do
       assert {:ok, false, :boolean} = Parser.parse("no", ctx)
     end
   end
+
+  describe "parse/3 null literal" do
+    test "parses null as nil with type :nil" do
+      ctx = Elex.new_context()
+      assert {:ok, nil, nil} = Parser.parse("null", ctx)
+    end
+
+    test "does not parse null as a prefix of an identifier" do
+      ctx = Elex.new_context()
+      assert {:ok, {:var, "nullable"}, nil} = Parser.parse("nullable", ctx, validate: false)
+    end
+  end
 end

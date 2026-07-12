@@ -257,5 +257,6 @@ defmodule Elex do
   defp infer_type(%Decimal{}), do: :decimal
   defp infer_type(value) when is_binary(value), do: :string
   defp infer_type(value) when is_boolean(value), do: :boolean
+  defp infer_type(nil), do: nil
   defp infer_type(_), do: :unknown
 end

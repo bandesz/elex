@@ -46,6 +46,54 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate("no") == false
     end
 
+    test "evaluates null literal" do
+      assert parse_and_evaluate("null") == nil
+    end
+
+    test "validates null as :nil type" do
+      ctx = Elex.new_context()
+      assert Elex.validate("null", ctx) == {:ok, nil}
+    end
+
+    test "evaluates null equality comparisons" do
+      assert parse_and_evaluate("null == null") == true
+      assert parse_and_evaluate("null != null") == false
+    end
+
+    test "evaluates null equality with nil variables" do
+      ctx = Elex.new_context() |> Elex.add_variable("x", nil)
+
+      assert parse_and_evaluate("x == null", ctx) == true
+      assert parse_and_evaluate("null == x", ctx) == true
+      assert parse_and_evaluate("x != null", ctx) == false
+      assert parse_and_evaluate("null != x", ctx) == false
+    end
+
+    test "returns error for null compared with other types during parsing" do
+      assert_parse_error("null == 1")
+      assert_parse_error("1 == null")
+      assert_parse_error("null != true")
+      assert_parse_error("true != null")
+      assert_parse_error(~s[null == "a"])
+      assert_parse_error(~s["a" == null])
+    end
+
+    test "null literal takes precedence over a context variable named null" do
+      ctx =
+        Elex.new_context(%{
+          "null" => %Variable{value: Decimal.new("99"), type: :decimal}
+        })
+
+      assert parse_and_evaluate("null", ctx) == nil
+    end
+
+    test "rejects null as a reserved variable name" do
+      ctx = Elex.new_context()
+
+      assert {:error, "variable 'null' is a reserved keyword"} =
+               Elex.Validator.validate({:var, "null"}, ctx)
+    end
+
     test "comparison binds tighter than and" do
       assert parse_and_evaluate("1 < 2 and 3 < 4") == true
       assert parse_and_evaluate("1 < 2 and 3 > 4") == false
