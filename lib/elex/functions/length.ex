@@ -25,9 +25,14 @@ defmodule Elex.Functions.Length do
     alias Elex.Validator
 
     case Validator.validate(arg_ast, context) do
-      {:ok, :string} -> {:ok, :decimal}
-      {:ok, other_type} -> {:error, "length function expects a string argument, got #{other_type}"}
-      {:error, reason} -> {:error, reason}
+      {:ok, :string} ->
+        {:ok, :decimal}
+
+      {:ok, other_type} ->
+        {:error, "length function expects a string argument, got #{other_type}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
