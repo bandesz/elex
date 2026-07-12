@@ -38,6 +38,7 @@ defmodule Elex do
     Elex.Functions.Between,
     Elex.Functions.Ceil,
     Elex.Functions.Clamp,
+    Elex.Functions.Coalesce,
     Elex.Functions.Concat,
     Elex.Functions.Contains,
     Elex.Functions.EndsWith,

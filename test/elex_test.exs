@@ -29,6 +29,7 @@ defmodule ElexTest do
                "between",
                "ceil",
                "clamp",
+               "coalesce",
                "concat",
                "contains",
                "ends_with",

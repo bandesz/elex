@@ -193,6 +193,10 @@ defmodule Elex.Evaluator do
     end
   end
 
+  def evaluate({:func, "coalesce", _arity, args_ast}, ctx) when length(args_ast) >= 2 do
+    evaluate_coalesce(args_ast, ctx)
+  end
+
   def evaluate({:func, name, arity, args_ast}, ctx) do
     function_module = lookup_function!(ctx, name, arity)
     evaluated_args = Enum.map(args_ast, &evaluate(&1, ctx))
@@ -227,4 +231,13 @@ defmodule Elex.Evaluator do
         end
     end
   end
+
+  defp evaluate_coalesce([arg_ast | rest], ctx) do
+    case evaluate(arg_ast, ctx) do
+      nil -> evaluate_coalesce(rest, ctx)
+      value -> value
+    end
+  end
+
+  defp evaluate_coalesce([], _ctx), do: nil
 end

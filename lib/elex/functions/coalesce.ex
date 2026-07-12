@@ -1,0 +1,81 @@
+defmodule Elex.Functions.Coalesce do
+  @moduledoc """
+  Returns the first non-empty argument.
+
+  ## Expression syntax
+
+      coalesce(null, 5)
+      coalesce(null, null, 10)
+  """
+  @behaviour Elex.Function
+
+  alias Elex.Function
+
+  @impl Function
+  @doc false
+  def signature do
+    %{
+      name: :coalesce,
+      variadic: true,
+      min_arity: 2
+    }
+  end
+
+  @impl Function
+  @doc false
+  def validate(args_ast, context) do
+    alias Elex.Validator
+    import Elex.Labels
+
+    with {:ok, types} <- validate_all(args_ast, context, Validator),
+         {:ok, result_type} <- unify_types(types) do
+      {:ok, result_type}
+    end
+  end
+
+  @impl Function
+  @doc false
+  def call(args) do
+    {:ok, Enum.find(args, &(not is_nil(&1)))}
+  end
+
+  @impl Function
+  @doc false
+  def documentation do
+    %{
+      signature: "coalesce(a, b)",
+      description: "returns the first non-empty argument"
+    }
+  end
+
+  defp validate_all(args_ast, context, validator) do
+    Enum.reduce_while(args_ast, {:ok, []}, fn arg_ast, acc ->
+      validate_arg(acc, arg_ast, context, validator)
+    end)
+  end
+
+  defp validate_arg({:error, _} = err, _arg_ast, _context, _validator), do: {:halt, err}
+
+  defp validate_arg({:ok, types}, arg_ast, context, validator) do
+    case validator.validate(arg_ast, context) do
+      {:ok, type} -> {:cont, {:ok, types ++ [type]}}
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
+  end
+
+  defp unify_types(types) do
+    import Elex.Labels
+
+    case types |> Enum.reject(&is_nil/1) |> Enum.uniq() do
+      [] ->
+        {:ok, nil}
+
+      [type] ->
+        {:ok, type}
+
+      [type1, type2 | _] ->
+        {:error,
+         "coalesce arguments must have the same type, got #{label(type1)} and #{label(type2)}"}
+    end
+  end
+end
