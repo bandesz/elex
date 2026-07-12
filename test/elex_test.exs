@@ -24,7 +24,20 @@ defmodule ElexTest do
         |> Enum.uniq()
         |> Enum.sort()
 
-      assert names == ["ceil", "floor", "if", "max", "min", "pi", "rem", "round", "sqrt"]
+      assert names == [
+               "abs",
+               "ceil",
+               "floor",
+               "if",
+               "max",
+               "min",
+               "mod",
+               "pi",
+               "pow",
+               "rem",
+               "round",
+               "sqrt"
+             ]
     end
   end
 

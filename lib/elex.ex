@@ -34,12 +34,15 @@ defmodule Elex do
   alias Elex.Context
 
   @standard_functions [
+    Elex.Functions.Abs,
     Elex.Functions.Ceil,
     Elex.Functions.Floor,
     Elex.Functions.If,
     Elex.Functions.Max,
     Elex.Functions.Min,
+    Elex.Functions.Mod,
     Elex.Functions.Pi,
+    Elex.Functions.Pow,
     Elex.Functions.Rem,
     Elex.Functions.Round,
     Elex.Functions.Sqrt
