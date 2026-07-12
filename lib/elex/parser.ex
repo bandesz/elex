@@ -19,7 +19,7 @@ defmodule Elex.Parser do
   - `and`
   - `==`, `!=`, `<`, `>`, `<=`, `>=`
   - `+`, `-`
-  - `*`, `/`
+  - `*`, `/`, `%`
   - `not` (unary)
   - `-` (unary)
 
@@ -197,7 +197,7 @@ defmodule Elex.Parser do
     parsec(:expr_not)
     |> repeat(
       ignore(ws)
-      |> ascii_char([?*, ?/])
+      |> ascii_char([?*, ?/, ?%])
       |> ignore(ws)
       |> concat(parsec(:expr_not))
     )
@@ -546,7 +546,7 @@ defmodule Elex.Parser do
   defp expects_value?(consumed) do
     trimmed = String.trim_trailing(consumed)
 
-    trimmed == "" or String.last(trimmed) in ~w[+ - * / < > = ! ( ,] or
+    trimmed == "" or String.last(trimmed) in ~w[+ - * / % < > = ! ( ,] or
       Regex.match?(~r/(?:^|[^a-z0-9_])(?:and|or|not)$/, trimmed)
   end
 

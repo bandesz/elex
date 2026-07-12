@@ -86,6 +86,10 @@ defmodule Elex.Evaluator do
     Decimal.div(evaluate(left_ast, ctx), evaluate(right_ast, ctx))
   end
 
+  def evaluate({:%, [left_ast, right_ast]}, ctx) do
+    Decimal.rem(evaluate(left_ast, ctx), evaluate(right_ast, ctx))
+  end
+
   def evaluate({:<, [left_ast, right_ast]}, ctx) do
     left = evaluate(left_ast, ctx)
     right = evaluate(right_ast, ctx)

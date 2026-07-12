@@ -77,7 +77,7 @@ defmodule Elex.Inverter do
   end
 
   defp collect_variables({op, [left, right]}, acc)
-       when op in [:+, :-, :*, :/, :<, :>, :<=, :>=, :==, :!=, :and, :or] do
+       when op in [:+, :-, :*, :/, :%, :<, :>, :<=, :>=, :==, :!=, :and, :or] do
     acc = collect_variables(left, acc)
     collect_variables(right, acc)
   end
@@ -220,7 +220,7 @@ defmodule Elex.Inverter do
   end
 
   defp replace_target_var({op, [left, right]}, target_var, replacement)
-       when op in [:+, :-, :*, :/, :<, :>, :<=, :>=, :==, :!=, :and, :or] do
+       when op in [:+, :-, :*, :/, :%, :<, :>, :<=, :>=, :==, :!=, :and, :or] do
     {op,
      [
        replace_target_var(left, target_var, replacement),
@@ -250,7 +250,7 @@ defmodule Elex.Inverter do
   end
 
   defp contains_variable?({op, [left, right]}, target_var)
-       when op in [:+, :-, :*, :/, :<, :>, :<=, :>=, :==, :!=, :and, :or] do
+       when op in [:+, :-, :*, :/, :%, :<, :>, :<=, :>=, :==, :!=, :and, :or] do
     contains_variable?(left, target_var) or contains_variable?(right, target_var)
   end
 

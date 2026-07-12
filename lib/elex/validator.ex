@@ -92,6 +92,10 @@ defmodule Elex.Validator do
     validate_decimal_op(:/, left_ast, right_ast, ctx)
   end
 
+  def validate({:%, [left_ast, right_ast]}, ctx) do
+    validate_decimal_op(:%, left_ast, right_ast, ctx)
+  end
+
   def validate({:<, [left_ast, right_ast]}, ctx) do
     validate_comparison_op(:<, left_ast, right_ast, ctx)
   end

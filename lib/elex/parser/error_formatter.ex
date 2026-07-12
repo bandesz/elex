@@ -13,7 +13,7 @@ defmodule Elex.Parser.ErrorFormatter do
   """
 
   @two_char_operators ~w(<= >= == !=)
-  @one_char_operators ~w(+ - * / < >)
+  @one_char_operators ~w(+ - * / % < >)
   @word_operators ~w(and or)
   @reserved_operators ~w(and or not)
 
