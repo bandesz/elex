@@ -93,23 +93,37 @@ defmodule Elex.Evaluator do
   def evaluate({:<, [left_ast, right_ast]}, ctx) do
     left = evaluate(left_ast, ctx)
     right = evaluate(right_ast, ctx)
-    Decimal.compare(left, right) == :lt
+
+    case {left, right} do
+      {%Decimal{}, %Decimal{}} -> Decimal.compare(left, right) == :lt
+      {left, right} when is_binary(left) and is_binary(right) -> left < right
+    end
   end
 
   def evaluate({:>, [left_ast, right_ast]}, ctx) do
     left = evaluate(left_ast, ctx)
     right = evaluate(right_ast, ctx)
-    Decimal.compare(left, right) == :gt
+
+    case {left, right} do
+      {%Decimal{}, %Decimal{}} -> Decimal.compare(left, right) == :gt
+      {left, right} when is_binary(left) and is_binary(right) -> left > right
+    end
   end
 
   def evaluate({:<=, [left_ast, right_ast]}, ctx) do
     left = evaluate(left_ast, ctx)
     right = evaluate(right_ast, ctx)
 
-    case Decimal.compare(left, right) do
-      :lt -> true
-      :eq -> true
-      :gt -> false
+    case {left, right} do
+      {%Decimal{}, %Decimal{}} ->
+        case Decimal.compare(left, right) do
+          :lt -> true
+          :eq -> true
+          :gt -> false
+        end
+
+      {left, right} when is_binary(left) and is_binary(right) ->
+        left <= right
     end
   end
 
@@ -117,10 +131,16 @@ defmodule Elex.Evaluator do
     left = evaluate(left_ast, ctx)
     right = evaluate(right_ast, ctx)
 
-    case Decimal.compare(left, right) do
-      :gt -> true
-      :eq -> true
-      :lt -> false
+    case {left, right} do
+      {%Decimal{}, %Decimal{}} ->
+        case Decimal.compare(left, right) do
+          :gt -> true
+          :eq -> true
+          :lt -> false
+        end
+
+      {left, right} when is_binary(left) and is_binary(right) ->
+        left >= right
     end
   end
 

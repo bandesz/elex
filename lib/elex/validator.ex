@@ -217,6 +217,9 @@ defmodule Elex.Validator do
       [{:ok, :decimal}, {:ok, :decimal}] ->
         {:ok, :boolean}
 
+      [{:ok, :string}, {:ok, :string}] ->
+        {:ok, :boolean}
+
       [{:ok, type1}, {:ok, type2}] ->
         {:error, "'#{op}' operator can not be used on #{label(type1)} and #{label(type2)}"}
 

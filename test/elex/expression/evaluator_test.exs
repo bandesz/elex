@@ -218,6 +218,19 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate("1.1 >= 1.1") == true
     end
 
+    test "evaluates string ordering comparisons" do
+      assert parse_and_evaluate(~s["a" < "b"]) == true
+      assert parse_and_evaluate(~s["b" < "a"]) == false
+      assert parse_and_evaluate(~s["a" <= "a"]) == true
+      assert parse_and_evaluate(~s["a" <= "b"]) == true
+      assert parse_and_evaluate(~s["b" <= "a"]) == false
+      assert parse_and_evaluate(~s["a" > "b"]) == false
+      assert parse_and_evaluate(~s["b" > "a"]) == true
+      assert parse_and_evaluate(~s["a" >= "a"]) == true
+      assert parse_and_evaluate(~s["a" >= "b"]) == false
+      assert parse_and_evaluate(~s["b" >= "a"]) == true
+    end
+
     test "evaluates comparison operators with variables" do
       ctx =
         Elex.new_context(%{
@@ -394,16 +407,12 @@ defmodule Elex.EvaluatorTest do
       assert_parse_error("1 >= true")
       assert_parse_error("true >= 1")
 
-      assert_parse_error(~s["a" < "b"])
       assert_parse_error(~s[1 < "b"])
       assert_parse_error(~s["a" < 1])
-      assert_parse_error(~s["a" > "b"])
       assert_parse_error(~s[1 > "b"])
       assert_parse_error(~s["a" > 1])
-      assert_parse_error(~s["a" <= "b"])
       assert_parse_error(~s[1 <= "b"])
       assert_parse_error(~s["a" <= 1])
-      assert_parse_error(~s["a" >= "b"])
       assert_parse_error(~s[1 >= "b"])
       assert_parse_error(~s["a" >= 1])
     end
