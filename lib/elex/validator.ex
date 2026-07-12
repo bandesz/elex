@@ -63,6 +63,19 @@ defmodule Elex.Validator do
     end
   end
 
+  def validate({:-, ast}, ctx) when not is_list(ast) do
+    case validate(ast, ctx) do
+      {:ok, :decimal} ->
+        {:ok, :decimal}
+
+      {:ok, type} ->
+        {:error, "- operator can not be used on #{label(type)} value"}
+
+      {:error, err} ->
+        {:error, err}
+    end
+  end
+
   def validate({:+, [left_ast, right_ast]}, ctx) do
     validate_decimal_op(:+, left_ast, right_ast, ctx)
   end

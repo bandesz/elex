@@ -21,6 +21,7 @@ defmodule Elex.Parser do
   - `+`, `-`
   - `*`, `/`
   - `not` (unary)
+  - `-` (unary)
 
   **Functions:** `name(arg1, arg2)` — see built-in modules under `Elex.Functions.*`
 
@@ -161,15 +162,21 @@ defmodule Elex.Parser do
     ])
     |> label("expression")
 
-  expr_not =
+  defcombinatorp(
+    :expr_not,
     choice([
       string("not")
       |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
       |> ignore(ws_req)
-      |> concat(expr_value)
+      |> concat(parsec(:expr_not))
       |> reduce(:unary_op),
+      ascii_char([?-])
+      |> ignore(ws)
+      |> concat(parsec(:expr_not))
+      |> reduce(:unary_negate_op),
       expr_value
     ])
+  )
 
   defp reduce_left_assoc([term]), do: term
 
@@ -187,12 +194,12 @@ defmodule Elex.Parser do
 
   defcombinatorp(
     :expr_mul,
-    expr_not
+    parsec(:expr_not)
     |> repeat(
       ignore(ws)
       |> ascii_char([?*, ?/])
       |> ignore(ws)
-      |> concat(expr_not)
+      |> concat(parsec(:expr_not))
     )
     |> reduce(:reduce_left_assoc)
   )
@@ -258,6 +265,8 @@ defmodule Elex.Parser do
   defparsecp(:do_parse, ignore(ws) |> concat(parsec(:expr_or)) |> ignore(ws) |> concat(eos()))
 
   defp unary_op([op, a]), do: {String.to_atom(op), a}
+
+  defp unary_negate_op([?-, a]), do: {:-, a}
 
   @typedoc """
   Low-level parse details returned by [`debug/1`](`debug/1`).

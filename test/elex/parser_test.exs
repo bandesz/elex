@@ -317,6 +317,18 @@ defmodule Elex.ParserTest do
     end
   end
 
+  describe "parse/3 unary minus" do
+    test "parses unary minus on a variable" do
+      ctx = Elex.new_context(%{"x" => %Variable{value: Decimal.new(5), type: :decimal}})
+      assert {:ok, {:-, {:var, "x"}}, :decimal} = Parser.parse("-x", ctx)
+    end
+
+    test "parses unary minus on a parenthesised expression" do
+      ctx = Elex.new_context()
+      assert {:ok, {:-, {:+, [_, _]}}, :decimal} = Parser.parse("-(1 + 2)", ctx)
+    end
+  end
+
   describe "parse/3 boolean aliases" do
     test "parses 'yes' as boolean true" do
       ctx = Elex.new_context()

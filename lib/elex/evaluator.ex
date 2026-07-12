@@ -60,6 +60,16 @@ defmodule Elex.Evaluator do
     end
   end
 
+  def evaluate({:-, ast}, ctx) when not is_list(ast) do
+    case evaluate(ast, ctx) do
+      %Decimal{} = decimal ->
+        Decimal.negate(decimal)
+
+      _ ->
+        raise("- operator can only be used with #{label(:decimal)} values")
+    end
+  end
+
   def evaluate({:+, [left_ast, right_ast]}, ctx) do
     Decimal.add(evaluate(left_ast, ctx), evaluate(right_ast, ctx))
   end

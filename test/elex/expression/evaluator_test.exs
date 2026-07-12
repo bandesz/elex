@@ -68,6 +68,14 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate("not (false or true)") == false
     end
 
+    test "evaluates unary minus (-)" do
+      ctx = Elex.new_context(%{"x" => %Variable{value: Decimal.new(5), type: :decimal}})
+
+      assert parse_and_evaluate("-x", ctx) == Decimal.new("-5")
+      assert parse_and_evaluate("-(1 + 2)") == Decimal.new("-3")
+      assert parse_and_evaluate("2 * -3") == Decimal.new("-6")
+    end
+
     test "evaluates addition (+)" do
       assert parse_and_evaluate("10.5 + 5.2") == Decimal.new("15.7")
       assert parse_and_evaluate("10.5 + 5.2 + 3") == Decimal.new("18.7")
@@ -434,6 +442,25 @@ defmodule Elex.EvaluatorTest do
 
       assert_parse_error(
         "not s",
+        Elex.new_context(%{
+          "s" => %{value: "hello", type: :string}
+        })
+      )
+    end
+
+    test "returns error for unary minus on incompatible types during parsing" do
+      assert_parse_error("-true")
+      assert_parse_error(~s[- "hello"])
+
+      assert_parse_error(
+        "-a",
+        Elex.new_context(%{
+          "a" => %{value: true, type: :boolean}
+        })
+      )
+
+      assert_parse_error(
+        "-s",
         Elex.new_context(%{
           "s" => %{value: "hello", type: :string}
         })

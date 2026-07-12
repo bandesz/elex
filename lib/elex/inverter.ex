@@ -86,6 +86,10 @@ defmodule Elex.Inverter do
     collect_variables(operand, acc)
   end
 
+  defp collect_variables({:-, operand}, acc) when not is_list(operand) do
+    collect_variables(operand, acc)
+  end
+
   defp collect_variables({:func, _name, _arity, args}, acc) do
     Enum.reduce(args, acc, &collect_variables(&1, &2))
   end
@@ -116,12 +120,12 @@ defmodule Elex.Inverter do
     cond do
       contains_variable?(left, target_var) and not contains_variable?(right, target_var) ->
         # expr + c = result → expr = result - c
-        new_right_side = {:-, [{:var, target_var}, right]}
+        new_right_side = {:-, [{:var, target_var}, normalize_operand(right)]}
         solve_equation(left, target_var, new_right_side)
 
       not contains_variable?(left, target_var) and contains_variable?(right, target_var) ->
         # c + expr = result → expr = result - c
-        new_right_side = {:-, [{:var, target_var}, left]}
+        new_right_side = {:-, [{:var, target_var}, normalize_operand(left)]}
         solve_equation(right, target_var, new_right_side)
 
       true ->
@@ -228,6 +232,10 @@ defmodule Elex.Inverter do
     {:not, replace_target_var(operand, target_var, replacement)}
   end
 
+  defp replace_target_var({:-, operand}, target_var, replacement) when not is_list(operand) do
+    {:-, replace_target_var(operand, target_var, replacement)}
+  end
+
   defp replace_target_var({:func, name, arity, args}, target_var, replacement) do
     {:func, name, arity, Enum.map(args, &replace_target_var(&1, target_var, replacement))}
   end
@@ -250,6 +258,10 @@ defmodule Elex.Inverter do
     contains_variable?(operand, target_var)
   end
 
+  defp contains_variable?({:-, operand}, target_var) when not is_list(operand) do
+    contains_variable?(operand, target_var)
+  end
+
   defp contains_variable?({:func, _name, _arity, args}, target_var) do
     Enum.any?(args, &contains_variable?(&1, target_var))
   end
@@ -267,4 +279,7 @@ defmodule Elex.Inverter do
   defp zero?(+0.0), do: true
   defp zero?(-0.0), do: true
   defp zero?(_), do: false
+
+  defp normalize_operand({:-, %Decimal{} = d}), do: Decimal.negate(d)
+  defp normalize_operand(operand), do: operand
 end
