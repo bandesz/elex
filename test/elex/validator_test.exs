@@ -103,8 +103,12 @@ defmodule Elex.ValidatorTest do
     test "rejects a reserved keyword used as a variable name" do
       ctx = Elex.new_context()
 
-      assert {:error, "variable 'and' is a reserved keyword"} =
-               Validator.validate({:var, "and"}, ctx)
+      reserved = ["and", "or", "not", "null", "true", "false", "yes", "no"]
+
+      for keyword <- reserved do
+        assert {:error, reason} = Validator.validate({:var, keyword}, ctx)
+        assert reason == "variable '#{keyword}' is a reserved keyword"
+      end
     end
 
     test "validates a decimal literal directly" do

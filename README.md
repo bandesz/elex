@@ -4,6 +4,16 @@
 
 Elex is a powerful expression language library for Elixir that provides parsing, validation, and evaluation of mathematical and logical expressions.
 
+## Documentation
+
+Full guides are available on [hexdocs.pm](https://hexdocs.pm/elex):
+
+- [Getting Started](https://hexdocs.pm/elex/getting-started.html)
+- [Expression Language](https://hexdocs.pm/elex/expression-language.html)
+- [Functions](https://hexdocs.pm/elex/functions.html)
+- [Ash Integration](https://hexdocs.pm/elex/ash-integration.html)
+- [Advanced Topics](https://hexdocs.pm/elex/advanced.html)
+
 ## Features
 
 - **Arithmetic Operations**: `+`, `-`, `*`, `/`, `%` (modulo), unary `-`
@@ -24,7 +34,7 @@ Add `elex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.1.0"}
+    {:elex, "~> 0.2.0"}
   ]
 end
 ```
@@ -76,7 +86,7 @@ Elex.evaluate("null", Elex.new_context())
 
 ### Variables
 
-Variable names must start with a lowercase letter and may contain letters, digits, and underscores. The words `and`, `or`, and `not` are reserved and cannot be used as variable names.
+Variable names must start with a lowercase letter and may contain letters, digits, and underscores. The words `and`, `or`, `not`, `null`, `true`, `false`, `yes`, and `no` are reserved and cannot be used as variable names.
 
 ```elixir
 context =

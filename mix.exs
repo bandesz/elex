@@ -4,7 +4,7 @@ defmodule Elex.MixProject do
   def project do
     [
       app: :elex,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -18,8 +18,28 @@ defmodule Elex.MixProject do
       name: "Elex",
       source_url: "https://github.com/bandesz/elex",
       docs: [
-        main: "Elex",
-        extras: ["README.md", "CHANGELOG.md", "LICENSE"]
+        main: "readme",
+        extras: [
+          "README.md": [title: "Overview"],
+          "guides/getting-started.md": [title: "Getting Started"],
+          "guides/expression-language.md": [title: "Expression Language"],
+          "guides/functions.md": [title: "Functions"],
+          "guides/ash-integration.md": [title: "Ash Integration"],
+          "guides/advanced.md": [title: "Advanced Topics"],
+          "CHANGELOG.md": [title: "Changelog"],
+          LICENSE: [title: "License"]
+        ],
+        groups_for_modules: [
+          "Core API": [Elex, Elex.Context, Elex.Variable],
+          "Parsing & Evaluation": [
+            Elex.Parser,
+            Elex.Evaluator,
+            Elex.Validator,
+            Elex.Parser.ErrorFormatter
+          ],
+          Extensions: [Elex.Function, Elex.AshValidation, Elex.Inverter, Elex.Labels],
+          "Built-in Functions": ~r/Elex\.Functions\./
+        ]
       ],
       # Dialyzer
       dialyzer: [
@@ -52,7 +72,7 @@ defmodule Elex.MixProject do
         "Changelog" => "https://github.com/bandesz/elex/blob/main/CHANGELOG.md"
       },
       maintainers: ["bandesz"],
-      files: ~w(lib mix.exs mix.lock README.md LICENSE CHANGELOG.md .formatter.exs)
+      files: ~w(lib guides mix.exs mix.lock README.md LICENSE CHANGELOG.md .formatter.exs)
     ]
   end
 

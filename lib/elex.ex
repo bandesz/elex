@@ -32,6 +32,14 @@ defmodule Elex do
       Elex.extract_variables("x + y")
       #=> {:ok, ["x", "y"]}
 
+  ## Guides
+
+  - [Getting Started](getting-started.html)
+  - [Expression Language](expression-language.html)
+  - [Functions](functions.html)
+  - [Ash Integration](ash-integration.html)
+  - [Advanced Topics](advanced.html)
+
   See [`Elex.Parser`](Elex.Parser) for parsing, [`Elex.Evaluator`](Elex.Evaluator) for
   direct AST evaluation, and [`Elex.Context`](Elex.Context) for custom variables and
   functions.

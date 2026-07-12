@@ -17,7 +17,7 @@ defmodule Elex.Validator do
   alias Elex.Context
   import Elex.Labels
 
-  @reserved_keywords ["and", "or", "not", "null"]
+  @reserved_keywords ["and", "or", "not", "null", "true", "false", "yes", "no"]
 
   @doc """
   Validates an expression AST against a context.

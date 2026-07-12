@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-12
+
 ### Added
 
 - Unary minus operator (`-x`, `-(1 + 2)`)
@@ -18,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Variadic `min` and `max` (two or more arguments)
 - String functions: `concat`, `length`, `contains`, `starts_with`, `ends_with`, `lower`, `upper`, `trim`
 - `coalesce` function (variadic; returns the first non-null argument)
+- Hexdocs guides: Getting Started, Expression Language, Functions, Ash Integration, and Advanced Topics
 
 ### Changed
 
@@ -42,4 +45,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.2.0]: https://github.com/bandesz/elex/releases/tag/v0.2.0
 [0.1.0]: https://github.com/bandesz/elex/releases/tag/v0.1.0
