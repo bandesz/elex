@@ -141,20 +141,30 @@ defmodule Elex.Evaluator do
   end
 
   def evaluate({:and, [left_ast, right_ast]}, ctx) do
-    left = evaluate(left_ast, ctx)
-    right = evaluate(right_ast, ctx)
-    left && right
+    case evaluate(left_ast, ctx) do
+      false -> false
+      true -> evaluate(right_ast, ctx)
+    end
   end
 
   def evaluate({:or, [left_ast, right_ast]}, ctx) do
-    left = evaluate(left_ast, ctx)
-    right = evaluate(right_ast, ctx)
-    left || right
+    case evaluate(left_ast, ctx) do
+      true -> true
+      false -> evaluate(right_ast, ctx)
+    end
   end
 
   def evaluate({:var, name}, ctx) do
     variable = Map.fetch!(ctx.variables, name)
     variable.value
+  end
+
+  def evaluate({:func, "if", 3, [cond_ast, true_ast, false_ast]}, ctx) do
+    if evaluate(cond_ast, ctx) do
+      evaluate(true_ast, ctx)
+    else
+      evaluate(false_ast, ctx)
+    end
   end
 
   def evaluate({:func, name, arity, args_ast}, ctx) do

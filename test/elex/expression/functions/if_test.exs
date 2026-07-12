@@ -79,6 +79,14 @@ defmodule Elex.Functions.IfTest do
       assert {:ok, Decimal.new(50)} == eval("if(1 > 2, if(true, 30, 40), 50)")
     end
 
+    test "does not evaluate the false branch when the condition is true" do
+      assert {:ok, Decimal.new(1)} == eval("if(true, 1, 1 / 0)")
+    end
+
+    test "does not evaluate the true branch when the condition is false" do
+      assert {:ok, Decimal.new(2)} == eval("if(false, 1 / 0, 2)")
+    end
+
     test "validation with variables" do
       context =
         Elex.new_context(%{

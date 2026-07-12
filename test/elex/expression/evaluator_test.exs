@@ -468,6 +468,24 @@ defmodule Elex.EvaluatorTest do
     end
   end
 
+  describe "short-circuit evaluation" do
+    test "and does not evaluate the right operand when the left is false" do
+      assert parse_and_evaluate("false and (1 / 0 > 0)") == false
+    end
+
+    test "and evaluates the right operand when the left is true" do
+      assert_raise Decimal.Error, fn -> parse_and_evaluate("true and (1 / 0 > 0)") end
+    end
+
+    test "or does not evaluate the right operand when the left is true" do
+      assert parse_and_evaluate("true or (1 / 0 > 0)") == true
+    end
+
+    test "or evaluates the right operand when the left is false" do
+      assert_raise Decimal.Error, fn -> parse_and_evaluate("false or (1 / 0 > 0)") end
+    end
+  end
+
   describe "function calls" do
     alias SolidBatch.Test.Support.Elex.TestFunction
 
