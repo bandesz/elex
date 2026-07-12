@@ -11,12 +11,15 @@ defmodule Elex.MixProject do
       deps: deps(),
       aliases: aliases(),
       test_coverage: [summary: [threshold: 80]],
+      description:
+        "Parse, validate, and evaluate mathematical and logical expressions with variables, functions, and optional Ash integration.",
+      package: package(),
       # Docs
       name: "Elex",
       source_url: "https://github.com/bandesz/elex",
       docs: [
         main: "Elex",
-        extras: ["README.md"]
+        extras: ["README.md", "CHANGELOG.md", "LICENSE"]
       ],
       # Dialyzer
       dialyzer: [
@@ -36,7 +39,20 @@ defmodule Elex.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "test.ci": :test]
+    ]
+  end
+
+  defp package do
+    [
+      name: "elex",
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/bandesz/elex",
+        "Changelog" => "https://github.com/bandesz/elex/blob/main/CHANGELOG.md"
+      },
+      maintainers: ["bandesz"],
+      files: ~w(lib mix.exs mix.lock README.md LICENSE CHANGELOG.md .formatter.exs)
     ]
   end
 
