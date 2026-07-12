@@ -36,6 +36,7 @@ defmodule Elex.Parser do
   import NimbleParsec
 
   alias Elex.Context
+  alias Elex.Parser.ErrorFormatter
   alias Elex.Validator
 
   ws = repeat(ascii_char([?\s, ?\t])) |> label("whitespace")
@@ -94,6 +95,7 @@ defmodule Elex.Parser do
 
   variable =
     identifier
+    |> lookahead_not(ignore(ws) |> ascii_char([?(]))
     |> unwrap_and_tag(:var)
 
   defcombinatorp(:argument, parsec(:expr_or))
@@ -130,6 +132,13 @@ defmodule Elex.Parser do
     {:func, name, 0, []}
   end
 
+  # Alternative ordering here is significant for error reporting, not just for
+  # matching. When every branch fails, NimbleParsec surfaces the failure of the
+  # *last* alternative it tried. Keeping `function_call` last means malformed
+  # calls such as `max(1 2)` report the position deep inside the argument list
+  # (the unexpected `2`) instead of collapsing back to the opening parenthesis.
+  # `variable` must come before `function_call` (and carries a `lookahead_not`
+  # for `(`) so an identifier followed by `(` is always parsed as a call.
   expr_value =
     choice([
       ignore(ascii_char([?(]))
@@ -140,8 +149,8 @@ defmodule Elex.Parser do
       literal_decimal,
       literal_boolean,
       literal_string,
-      function_call,
-      variable
+      variable,
+      function_call
     ])
     |> label("expression")
 
@@ -243,6 +252,87 @@ defmodule Elex.Parser do
 
   defp unary_op([op, a]), do: {String.to_atom(op), a}
 
+  @typedoc """
+  Low-level parse details returned by [`debug/1`](`debug/1`).
+
+  - `:expression` - the original input string
+  - `:status` - `:ok` when the whole input parsed, `:error` otherwise
+  - `:ast` - the parsed AST on success, `nil` on error
+  - `:reason` - the raw NimbleParsec error message on error, `nil` on success
+  - `:consumed` - the leading portion of the input the parser accepted
+  - `:rest` - the unconsumed remainder at the furthest position reached
+  - `:line` / `:column` - 1-based line and 0-based column of that position.
+    NimbleParsec does not track intra-line columns for this grammar, so
+    `:column` is `0` for single-line expressions; use `:byte_offset` to locate
+    the position instead.
+  - `:byte_offset` - byte offset of that position into the input
+  """
+  @type debug_info :: %{
+          expression: String.t(),
+          status: :ok | :error,
+          ast: term() | nil,
+          reason: String.t() | nil,
+          consumed: String.t(),
+          rest: String.t(),
+          line: pos_integer(),
+          column: non_neg_integer(),
+          byte_offset: non_neg_integer()
+        }
+
+  @doc """
+  Parses an expression and returns the raw, low-level parser state.
+
+  This is a development and debugging aid: it exposes exactly what the
+  underlying NimbleParsec parser produced (including the raw error message,
+  how far it got, and what input was left over) without validating the AST
+  against a context or translating errors into human-readable messages.
+
+  Use [`parse/3`](`parse/3`) for normal parsing.
+
+  ## Returns
+
+  A [`debug_info`](`t:debug_info/0`) map. See its documentation for the fields.
+
+  ## Examples
+
+      iex> info = Elex.Parser.debug("( 1 + 2")
+      iex> info.status
+      :error
+      iex> info.rest
+      "( 1 + 2"
+
+      iex> info = Elex.Parser.debug("1 + 2")
+      iex> info.status
+      :ok
+      iex> info.rest
+      ""
+
+  """
+  @spec debug(String.t()) :: debug_info()
+  def debug(expression) when is_binary(expression) do
+    case do_parse(expression) do
+      {:ok, [ast], rest, _ctx, {line, column}, byte_offset} ->
+        build_debug_info(expression, :ok, ast, nil, rest, line, column, byte_offset)
+
+      {:error, reason, rest, _ctx, {line, column}, byte_offset} ->
+        build_debug_info(expression, :error, nil, reason, rest, line, column, byte_offset)
+    end
+  end
+
+  defp build_debug_info(expression, status, ast, reason, rest, line, column, byte_offset) do
+    %{
+      expression: expression,
+      status: status,
+      ast: ast,
+      reason: reason,
+      consumed: binary_part(expression, 0, byte_offset),
+      rest: rest,
+      line: line,
+      column: column,
+      byte_offset: byte_offset
+    }
+  end
+
   @doc """
   Parses an expression string and optionally validates the resulting AST against a context.
 
@@ -280,8 +370,11 @@ defmodule Elex.Parser do
       {:ok, [ast], "", _, _, _} ->
         validate_or_return_ast(ast, context, validate?)
 
-      {:error, reason, _rest, _, {line, _col}, _byte_offset} ->
-        {:error, "Parse error at line #{line}: #{reason}"}
+      {:ok, [_ast], rest, _, _, byte_offset} ->
+        {:error, humanize_error(expression, rest, byte_offset)}
+
+      {:error, _reason, rest, _, _, byte_offset} ->
+        {:error, humanize_error(expression, rest, byte_offset)}
     end
   end
 
@@ -293,4 +386,172 @@ defmodule Elex.Parser do
   end
 
   defp validate_or_return_ast(ast, _context, false), do: {:ok, ast, nil}
+
+  # NimbleParsec discards how far it got inside a failed `choice`/`repeat`, so a
+  # malformed sub-expression nested inside a group or argument list surfaces at
+  # the enclosing `(` or `,` rather than at the real problem. Before formatting,
+  # descend into that group or argument and re-parse it so the message points at
+  # the deepest, most specific failure.
+  defp humanize_error(expression, rest, byte_offset) do
+    {expr, rest, offset} = locate_deepest(expression, rest, byte_offset)
+    ErrorFormatter.humanize(expr, rest, offset)
+  end
+
+  defp locate_deepest(expression, rest, byte_offset) do
+    case descend(expression, rest, byte_offset) do
+      nil -> {expression, rest, byte_offset}
+      {sub, sub_rest, sub_offset} -> locate_deepest(sub, sub_rest, sub_offset)
+    end
+  end
+
+  defp descend(expression, rest, byte_offset) do
+    remainder = String.trim_leading(rest)
+    consumed = binary_part(expression, 0, byte_offset)
+
+    cond do
+      # The parser stalled right before a parenthesised group it could not
+      # consume where a value was expected: re-parse the group's interior. We
+      # skip this when a value was just completed (e.g. `1 (...)`), so that a
+      # stray group is reported as an unexpected `(` rather than descended into.
+      String.starts_with?(remainder, "(") and expects_value?(consumed) ->
+        descend_group(remainder)
+
+      # The parser stalled at a comma inside an argument list: re-parse the
+      # argument that follows it (bounded by the enclosing closing parenthesis).
+      String.starts_with?(remainder, ",") ->
+        descend_arguments(remainder)
+
+      true ->
+        nil
+    end
+  end
+
+  defp descend_group(remainder) do
+    case split_group(remainder) do
+      {inner, _after} -> if blank?(inner), do: nil, else: reparse_failure(inner)
+      nil -> nil
+    end
+  end
+
+  defp descend_arguments("," <> rest) do
+    rest
+    |> arguments_until_close()
+    |> split_top_level_commas()
+    |> first_failing_argument()
+  end
+
+  # A value is expected (so a following group is worth descending into) at the
+  # start of the input or immediately after an operator, keyword, comma, or
+  # opening parenthesis - but not after a completed value.
+  defp expects_value?(consumed) do
+    trimmed = String.trim_trailing(consumed)
+
+    trimmed == "" or String.last(trimmed) in ~w[+ - * / < > = ! ( ,] or
+      Regex.match?(~r/(?:^|[^a-z0-9_])(?:and|or|not)$/, trimmed)
+  end
+
+  defp blank?(string), do: String.trim(string) == ""
+
+  defp first_failing_argument([]), do: nil
+
+  defp first_failing_argument([segment | rest]) do
+    case String.trim(segment) do
+      # An empty argument (a double or trailing comma) is best described by the
+      # existing "unexpected ','" message, so stop descending here.
+      "" -> nil
+      trimmed -> reparse_failure(trimmed) || first_failing_argument(rest)
+    end
+  end
+
+  # Returns `{sub_expression, rest, offset}` when `sub` does not parse cleanly,
+  # or `nil` when it parses fully (so there is nothing deeper to report).
+  defp reparse_failure(sub) do
+    case do_parse(sub) do
+      {:ok, [_ast], "", _, _, _} -> nil
+      {:ok, [_ast], rest, _, _, offset} -> {sub, rest, offset}
+      {:error, _reason, rest, _, _, offset} -> {sub, rest, offset}
+    end
+  end
+
+  # Given a binary starting with `(`, returns `{interior, rest_after_close}`
+  # where `interior` is the content between the outer parentheses. Returns `nil`
+  # when there is no matching close. Parentheses inside string literals are
+  # ignored. Delimiters are ASCII, so scanning by byte is safe for UTF-8 input.
+  defp split_group("(" <> rest), do: split_group(rest, 0, false, "")
+
+  defp split_group(<<>>, _depth, _in_string, _acc), do: nil
+
+  defp split_group(<<?\\, next, rest::binary>>, depth, true, acc),
+    do: split_group(rest, depth, true, <<acc::binary, ?\\, next>>)
+
+  defp split_group(<<?", rest::binary>>, depth, in_string, acc),
+    do: split_group(rest, depth, not in_string, <<acc::binary, ?">>)
+
+  defp split_group(<<char, rest::binary>>, depth, true, acc),
+    do: split_group(rest, depth, true, <<acc::binary, char>>)
+
+  defp split_group(<<?(, rest::binary>>, depth, false, acc),
+    do: split_group(rest, depth + 1, false, <<acc::binary, ?(>>)
+
+  defp split_group(<<?), rest::binary>>, 0, false, acc), do: {acc, rest}
+
+  defp split_group(<<?), rest::binary>>, depth, false, acc),
+    do: split_group(rest, depth - 1, false, <<acc::binary, ?)>>)
+
+  defp split_group(<<char, rest::binary>>, depth, false, acc),
+    do: split_group(rest, depth, false, <<acc::binary, char>>)
+
+  # Collects the argument-list text that follows a comma, stopping at the
+  # closing parenthesis of the enclosing call (the first `)` at outer depth).
+  defp arguments_until_close(binary), do: arguments_until_close(binary, 0, false, "")
+
+  defp arguments_until_close(<<>>, _depth, _in_string, acc), do: acc
+
+  defp arguments_until_close(<<?\\, next, rest::binary>>, depth, true, acc),
+    do: arguments_until_close(rest, depth, true, <<acc::binary, ?\\, next>>)
+
+  defp arguments_until_close(<<?", rest::binary>>, depth, in_string, acc),
+    do: arguments_until_close(rest, depth, not in_string, <<acc::binary, ?">>)
+
+  defp arguments_until_close(<<char, rest::binary>>, depth, true, acc),
+    do: arguments_until_close(rest, depth, true, <<acc::binary, char>>)
+
+  defp arguments_until_close(<<?(, rest::binary>>, depth, false, acc),
+    do: arguments_until_close(rest, depth + 1, false, <<acc::binary, ?(>>)
+
+  defp arguments_until_close(<<?), _rest::binary>>, 0, false, acc), do: acc
+
+  defp arguments_until_close(<<?), rest::binary>>, depth, false, acc),
+    do: arguments_until_close(rest, depth - 1, false, <<acc::binary, ?)>>)
+
+  defp arguments_until_close(<<char, rest::binary>>, depth, false, acc),
+    do: arguments_until_close(rest, depth, false, <<acc::binary, char>>)
+
+  # Splits an argument list on commas that sit at the outer level, ignoring
+  # commas nested in parentheses or string literals.
+  defp split_top_level_commas(binary), do: split_top_level_commas(binary, 0, false, "", [])
+
+  defp split_top_level_commas(<<>>, _depth, _in_string, current, acc),
+    do: Enum.reverse([current | acc])
+
+  defp split_top_level_commas(<<?\\, next, rest::binary>>, depth, true, current, acc),
+    do: split_top_level_commas(rest, depth, true, <<current::binary, ?\\, next>>, acc)
+
+  defp split_top_level_commas(<<?", rest::binary>>, depth, in_string, current, acc),
+    do: split_top_level_commas(rest, depth, not in_string, <<current::binary, ?">>, acc)
+
+  defp split_top_level_commas(<<char, rest::binary>>, depth, true, current, acc),
+    do: split_top_level_commas(rest, depth, true, <<current::binary, char>>, acc)
+
+  defp split_top_level_commas(<<?,, rest::binary>>, 0, false, current, acc),
+    do: split_top_level_commas(rest, 0, false, "", [current | acc])
+
+  defp split_top_level_commas(<<?(, rest::binary>>, depth, false, current, acc),
+    do: split_top_level_commas(rest, depth + 1, false, <<current::binary, ?(>>, acc)
+
+  defp split_top_level_commas(<<?), rest::binary>>, depth, false, current, acc),
+    do: split_top_level_commas(rest, max(depth - 1, 0), false, <<current::binary, ?)>>, acc)
+
+  defp split_top_level_commas(<<char, rest::binary>>, depth, false, current, acc),
+    do: split_top_level_commas(rest, depth, false, <<current::binary, char>>, acc)
 end
