@@ -13,10 +13,17 @@ defmodule Elex.Inverter do
 
   ## Examples
 
-      # value + 5 → value - 5
-      # value * 3 → value / 3
-      # 10 - value → 10 - value (constant - variable case)
-      # 100 / value → 100 / value (constant / variable case)
+      context = Elex.new_context() |> Elex.add_variable("value", 0)
+      {:ok, ast, _} = Elex.Parser.parse("value + 5", context, validate: false)
+      Elex.Inverter.invert(ast, "value")
+      #=> {:ok, {:-, [{:var, "value"}, #Decimal<5>]}}
+
+      {:ok, ast, _} = Elex.Parser.parse("value * 3", context, validate: false)
+      Elex.Inverter.invert(ast, "value")
+      #=> {:ok, {:/, [{:var, "value"}, #Decimal<3>]}}
+
+  See [`Elex.Parser`](Elex.Parser) for parsing and [`Elex.Evaluator`](Elex.Evaluator)
+  for evaluating the inverted AST.
   """
 
   @doc """
@@ -29,22 +36,15 @@ defmodule Elex.Inverter do
 
   ## Returns
 
-  Returns the inverted AST that represents the inverse operation.
-
-  ## Raises
-
-  - `RuntimeError` if the expression contains multiple variables
-  - `RuntimeError` if the target variable is not found in the expression
-  - `RuntimeError` if the operation is not supported for inversion
-  - `RuntimeError` if division by zero would occur
+  - `{:ok, ast}` - The inverted AST that represents the inverse operation
+  - `{:error, reason}` - A human-readable error message when inversion is not possible
   """
-  @spec invert(term(), String.t()) :: term()
+  @spec invert(term(), String.t()) :: {:ok, term()} | {:error, String.t()}
   def invert(ast, target_var) do
-    # First, validate that we can invert this expression
     validate_invertible(ast, target_var)
-
-    # Then perform the inversion
-    do_invert(ast, target_var)
+    {:ok, do_invert(ast, target_var)}
+  rescue
+    e in RuntimeError -> {:error, e.message}
   end
 
   # Validate that the expression is invertible

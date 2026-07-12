@@ -3,12 +3,32 @@ defmodule Elex do
   Elex is an expression language library for parsing, validating, and evaluating expressions.
 
   It supports:
-  - Arithmetic operations (+, -, *, /)
-  - Comparison operators (<, >, <=, >=, ==, !=)
-  - Boolean operations (and, or, not)
-  - Variables
-  - Functions
+
+  - Arithmetic operations (`+`, `-`, `*`, `/`)
+  - Comparison operators (`<`, `>`, `<=`, `>=`, `==`, `!=`)
+  - Boolean operations (`and`, `or`, `not`)
+  - Variables and built-in functions
   - Type checking and validation
+
+  ## Quick start
+
+      context =
+        Elex.new_context()
+        |> Elex.add_variable("x", 10)
+        |> Elex.add_variable("y", 5)
+
+      Elex.evaluate("x + y * 2", context)
+      #=> {:ok, #Decimal<20>}
+
+      Elex.validate("x > 0", context)
+      #=> {:ok, :boolean}
+
+      Elex.extract_variables("x + y")
+      #=> {:ok, ["x", "y"]}
+
+  See [`Elex.Parser`](Elex.Parser) for parsing, [`Elex.Evaluator`](Elex.Evaluator) for
+  direct AST evaluation, and [`Elex.Context`](Elex.Context) for custom variables and
+  functions.
   """
 
   alias Elex.Context
@@ -25,9 +45,29 @@ defmodule Elex do
     Elex.Functions.Sqrt
   ]
 
-  @spec new_context(map()) :: Context.t()
+  @doc """
+  Creates a new evaluation context with standard functions and optional variables.
+
+  ## Parameters
+
+  - `variables` - Map of variable names to [`Elex.Variable`](Elex.Variable) structs.
+    Defaults to an empty map.
+
+  ## Returns
+
+  A [`Elex.Context`](Elex.Context) struct ready for parsing and evaluation.
+
+  ## Examples
+
+      Elex.new_context()
+
+      Elex.new_context(%{
+        "x" => %Elex.Variable{value: Decimal.new(1), type: :decimal}
+      })
+
+  """
+  @spec new_context(%{optional(String.t()) => Elex.Variable.t()}) :: Context.t()
   def new_context(variables \\ %{}) when is_map(variables) do
-    # Start with empty context and add all standard functions using the proper method
     context = %Context{variables: variables}
 
     Enum.reduce(@standard_functions, context, fn module, acc ->
@@ -35,7 +75,31 @@ defmodule Elex do
     end)
   end
 
-  @spec evaluate(String.t(), Context.t()) :: {:ok, any()} | {:error, String.t()}
+  @doc """
+  Parses, validates, and evaluates an expression string.
+
+  Returns `{:ok, result}` on success or `{:error, reason}` on parse, validation, or
+  evaluation failure (including arithmetic errors such as division by zero).
+
+  ## Parameters
+
+  - `expression_string` - The expression to evaluate
+  - `context` - A [`Elex.Context`](Elex.Context) with variables and functions
+
+  ## Returns
+
+  - `{:ok, result}` - The evaluated result (`Decimal.t()`, `boolean()`, or `String.t()`)
+  - `{:error, reason}` - A human-readable error message
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      Elex.evaluate("x + 5", context)
+      #=> {:ok, #Decimal<15>}
+
+  """
+  @spec evaluate(String.t(), Context.t()) ::
+          {:ok, Decimal.t() | boolean() | String.t()} | {:error, String.t()}
   def evaluate(expression_string, context) do
     with {:ok, ast, _type} <- Elex.Parser.parse(expression_string, context),
          result <- Elex.Evaluator.evaluate(ast, context) do
@@ -44,9 +108,30 @@ defmodule Elex do
       {:error, reason} -> {:error, reason}
     end
   rescue
-    e in RuntimeError -> {:error, "Evaluation error: #{e.message}"}
+    e in [RuntimeError, Decimal.Error] ->
+      {:error, "Evaluation error: #{Exception.message(e)}"}
   end
 
+  @doc """
+  Parses and validates an expression string without evaluating it.
+
+  ## Parameters
+
+  - `expression_string` - The expression to validate
+  - `context` - A [`Elex.Context`](Elex.Context) with variables and functions
+
+  ## Returns
+
+  - `{:ok, type}` - The expression's result type (`:decimal`, `:boolean`, or `:string`)
+  - `{:error, reason}` - A human-readable error message
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      Elex.validate("x > 0", context)
+      #=> {:ok, :boolean}
+
+  """
   @spec validate(String.t(), Context.t()) :: {:ok, atom()} | {:error, String.t()}
   def validate(expression_string, context) do
     Elex.Parser.parse(expression_string, context)
@@ -56,6 +141,26 @@ defmodule Elex do
     end
   end
 
+  @doc """
+  Extracts variable names referenced in an expression string.
+
+  Parsing is performed without validation, so variables need not exist in the context.
+
+  ## Parameters
+
+  - `expression_string` - The expression to analyse
+
+  ## Returns
+
+  - `{:ok, names}` - A deduplicated list of variable name strings
+  - `{:error, reason}` - A parse error message
+
+  ## Examples
+
+      Elex.extract_variables("x + y * 2")
+      #=> {:ok, ["x", "y"]}
+
+  """
   @spec extract_variables(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
   def extract_variables(expression_string) do
     case Elex.Parser.parse(expression_string, %Context{}, validate: false) do
@@ -91,7 +196,6 @@ defmodule Elex do
   end
 
   defp do_extract_variables(_literal) do
-    # Literals (numbers, strings, booleans) have no variables
     []
   end
 
@@ -116,7 +220,8 @@ defmodule Elex do
   @doc """
   Add a single variable to a context.
 
-  This creates a Variable struct with the value and adds it to the context.
+  This creates a [`Elex.Variable`](Elex.Variable) struct with the value and adds it to
+  the context.
 
   ## Examples
 
@@ -134,7 +239,6 @@ defmodule Elex do
     Context.add_variable(context, name, variable)
   end
 
-  # Helper function to infer the type of a value
   defp infer_type(value) when is_integer(value), do: :decimal
   defp infer_type(value) when is_float(value), do: :decimal
   defp infer_type(%Decimal{}), do: :decimal
