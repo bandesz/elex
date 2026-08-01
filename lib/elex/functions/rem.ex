@@ -47,7 +47,8 @@ defmodule Elex.Functions.Rem do
     %{
       signature: "rem(a, b)",
       description:
-        "returns the remainder of a divided by b (sign follows the dividend, unlike mod)"
+        "returns the remainder of a divided by b (sign follows the dividend, unlike mod)",
+      category: :math
     }
   end
 end

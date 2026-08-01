@@ -57,7 +57,8 @@ defmodule Elex.Functions.Max do
   def documentation do
     %{
       signature: "max(a, b, ...)",
-      description: "returns the largest of the given values"
+      description: "returns the largest of the given values",
+      category: :math
     }
   end
 end

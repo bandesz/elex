@@ -44,7 +44,8 @@ defmodule Elex.Functions.Pow do
   def documentation do
     %{
       signature: "pow(base, exponent)",
-      description: "returns base raised to the power of exponent"
+      description: "returns base raised to the power of exponent",
+      category: :math
     }
   end
 

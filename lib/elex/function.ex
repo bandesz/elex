@@ -71,9 +71,15 @@ defmodule Elex.Function do
   Returns human-readable documentation for the function.
 
   Used for introspection and documentation generation.
+
+  An optional `:category` atom (e.g. `:math`, `:string`, `:utility`) can be
+  included so host applications can group functions in documentation UIs.
   """
-  @callback documentation() :: %{
-              signature: String.t(),
-              description: String.t()
-            }
+  @type documentation :: %{
+          required(:signature) => String.t(),
+          required(:description) => String.t(),
+          optional(:category) => atom()
+        }
+
+  @callback documentation() :: documentation()
 end

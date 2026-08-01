@@ -99,6 +99,36 @@ Custom functions sit alongside built-ins in the same context and follow the same
 validation rules: arguments are type-checked at parse time, then evaluated at
 runtime.
 
+## Introspection API
+
+Host applications can build documentation UIs without reaching into
+`context.functions` directly:
+
+```elixir
+context = Elex.new_context()
+
+# List all registered functions with metadata
+Elex.Context.list_functions(context)
+#=> [
+#     %{module: Elex.Functions.Abs, name: "abs", arity: 1,
+#       signature: "abs(x)", description: "returns the absolute value of x",
+#       category: :math},
+#     %{module: Elex.Functions.Max, name: "max", arity: :variadic, min_arity: 2,
+#       signature: "max(a, b, ...)", description: "returns the largest of the given values",
+#       category: :math},
+#     ...
+#   ]
+
+# Distinguish built-ins from custom functions
+Elex.list_standard_function_modules()
+#=> [Elex.Functions.Abs, Elex.Functions.Between, ...]
+```
+
+Each built-in function's `documentation/0` callback includes an optional
+`:category` atom (`:math`, `:string`, etc.) so UIs can group functions without
+hardcoding names. Custom functions can set `:category` in their own
+`documentation/0` implementation.
+
 ## Further reading
 
 - [Expression Language](expression-language.md) — operators and types

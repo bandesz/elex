@@ -42,7 +42,8 @@ defmodule Elex.Functions.Lower do
   def documentation do
     %{
       signature: "lower(s)",
-      description: "returns the lowercase form of a string"
+      description: "returns the lowercase form of a string",
+      category: :string
     }
   end
 end

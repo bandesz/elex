@@ -104,6 +104,21 @@ defmodule Elex do
   end
 
   @doc """
+  Returns the list of built-in function modules registered by `new_context/0`.
+
+  Use this to distinguish standard functions from custom ones without relying on
+  module-name heuristics.
+
+  ## Examples
+
+      Elex.list_standard_function_modules()
+      #=> [Elex.Functions.Abs, Elex.Functions.Between, ...]
+
+  """
+  @spec list_standard_function_modules() :: [module()]
+  def list_standard_function_modules, do: @standard_functions
+
+  @doc """
   Parses, validates, and evaluates an expression string.
 
   Returns `{:ok, result}` on success or `{:error, reason}` on parse, validation, or

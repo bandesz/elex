@@ -56,7 +56,8 @@ defmodule Elex.Functions.Between do
   def documentation do
     %{
       signature: "between(x, low, high)",
-      description: "returns true when x is within the inclusive range between low and high"
+      description: "returns true when x is within the inclusive range between low and high",
+      category: :math
     }
   end
 end

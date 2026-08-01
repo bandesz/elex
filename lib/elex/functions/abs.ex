@@ -42,7 +42,8 @@ defmodule Elex.Functions.Abs do
   def documentation do
     %{
       signature: "abs(x)",
-      description: "returns the absolute value of x"
+      description: "returns the absolute value of x",
+      category: :math
     }
   end
 end

@@ -66,7 +66,8 @@ defmodule Elex.Functions.Mod do
     %{
       signature: "mod(a, b)",
       description:
-        "returns the floored modulo of a divided by b (sign follows the divisor, unlike rem)"
+        "returns the floored modulo of a divided by b (sign follows the divisor, unlike rem)",
+      category: :math
     }
   end
 end

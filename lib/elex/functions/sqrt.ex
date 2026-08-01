@@ -42,7 +42,8 @@ defmodule Elex.Functions.Sqrt do
   def documentation do
     %{
       signature: "sqrt(x)",
-      description: "returns the square root of x"
+      description: "returns the square root of x",
+      category: :math
     }
   end
 end

@@ -120,4 +120,109 @@ defmodule Elex.ContextTest do
       assert ctx.variables["bool"].type == :boolean
     end
   end
+
+  describe "list_functions/1" do
+    test "returns empty list for empty context" do
+      assert Context.list_functions(%Context{}) == []
+    end
+
+    test "returns sorted metadata for all registered functions" do
+      ctx = Elex.new_context()
+      functions = Context.list_functions(ctx)
+
+      assert length(functions) == length(Elex.list_standard_function_modules())
+
+      names = Enum.map(functions, & &1.name)
+      assert names == Enum.sort(names)
+
+      abs_info = Enum.find(functions, &(&1.name == "abs"))
+      assert abs_info.module == Elex.Functions.Abs
+      assert abs_info.arity == 1
+      assert abs_info.signature == "abs(x)"
+      assert abs_info.description == "returns the absolute value of x"
+      assert abs_info.category == :math
+    end
+
+    test "includes variadic arity and min_arity" do
+      ctx = Elex.new_context()
+      functions = Context.list_functions(ctx)
+
+      max_info = Enum.find(functions, &(&1.name == "max"))
+      assert max_info.arity == :variadic
+      assert max_info.min_arity == 2
+      assert max_info.signature == "max(a, b, ...)"
+      assert max_info.category == :math
+    end
+
+    test "includes custom functions without category when not provided" do
+      defmodule TestIntrospectionFunction do
+        @behaviour Elex.Function
+
+        def signature, do: %{name: "custom_fn", arity: 1}
+        def validate(_args, _ctx), do: {:ok, :decimal}
+        def call(_args), do: {:ok, Decimal.new("1")}
+        def documentation, do: %{signature: "custom_fn(x)", description: "A custom function"}
+      end
+
+      ctx = %Context{} |> Context.add_function(TestIntrospectionFunction)
+      [info] = Context.list_functions(ctx)
+
+      assert info.module == TestIntrospectionFunction
+      assert info.name == "custom_fn"
+      assert info.arity == 1
+      assert info.signature == "custom_fn(x)"
+      assert info.description == "A custom function"
+      refute Map.has_key?(info, :category)
+    end
+
+    test "all standard functions include category" do
+      ctx = Elex.new_context()
+      functions = Context.list_functions(ctx)
+
+      assert Enum.all?(functions, &Map.has_key?(&1, :category))
+    end
+
+    test "includes custom variadic function introspection" do
+      defmodule TestVariadicIntrospectionFunction do
+        @behaviour Elex.Function
+
+        def signature, do: %{name: "custom_sum", variadic: true, min_arity: 2}
+        def validate(_args, _ctx), do: {:ok, :decimal}
+        def call(args), do: {:ok, Enum.reduce(args, Decimal.new(0), &Decimal.add/2)}
+
+        def documentation do
+          %{signature: "custom_sum(a, b, ...)", description: "Sums arguments", category: :math}
+        end
+      end
+
+      ctx = %Context{} |> Context.add_function(TestVariadicIntrospectionFunction)
+      [info] = Context.list_functions(ctx)
+
+      assert info.module == TestVariadicIntrospectionFunction
+      assert info.name == "custom_sum"
+      assert info.arity == :variadic
+      assert info.min_arity == 2
+      assert info.signature == "custom_sum(a, b, ...)"
+      assert info.description == "Sums arguments"
+      assert info.category == :math
+    end
+
+    test "includes category when provided in documentation/0" do
+      defmodule TestCategorizedFunction do
+        @behaviour Elex.Function
+
+        def signature, do: %{name: "categorized", arity: 0}
+        def validate(_args, _ctx), do: {:ok, :string}
+        def call(_args), do: {:ok, "ok"}
+
+        def documentation,
+          do: %{signature: "categorized()", description: "Test", category: :utility}
+      end
+
+      ctx = %Context{} |> Context.add_function(TestCategorizedFunction)
+      [info] = Context.list_functions(ctx)
+
+      assert info.category == :utility
+    end
+  end
 end

@@ -44,7 +44,8 @@ defmodule Elex.Functions.Coalesce do
   def documentation do
     %{
       signature: "coalesce(a, b, ...)",
-      description: "returns the first non-null argument"
+      description: "returns the first non-null argument",
+      category: :string
     }
   end
 

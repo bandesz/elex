@@ -49,7 +49,8 @@ defmodule Elex.Functions.Clamp do
   def documentation do
     %{
       signature: "clamp(x, min, max)",
-      description: "clamps x to the inclusive range between min and max"
+      description: "clamps x to the inclusive range between min and max",
+      category: :math
     }
   end
 end

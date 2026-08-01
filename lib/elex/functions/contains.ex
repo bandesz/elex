@@ -47,7 +47,8 @@ defmodule Elex.Functions.Contains do
   def documentation do
     %{
       signature: "contains(haystack, needle)",
-      description: "returns true when haystack contains needle"
+      description: "returns true when haystack contains needle",
+      category: :string
     }
   end
 end

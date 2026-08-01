@@ -110,7 +110,7 @@ Implement the `Elex.Function` behaviour with four callbacks:
 | `signature/0` | Function name and arity (or variadic spec) |
 | `validate/2` | Type-check unevaluated argument ASTs at parse time |
 | `call/1` | Execute with evaluated argument values |
-| `documentation/0` | Human-readable signature and description |
+| `documentation/0` | Human-readable signature and description (optional `:category` atom for grouping) |
 
 ### Example
 
@@ -135,10 +135,18 @@ defmodule MyApp.Functions.Double do
 
   @impl true
   def documentation do
-    %{signature: "double(x)", description: "returns x multiplied by 2"}
+    %{
+      signature: "double(x)",
+      description: "returns x multiplied by 2",
+      category: :math
+    }
   end
 end
 ```
+
+The optional `:category` atom (e.g. `:math`, `:string`, `:utility`) is included in
+`Elex.Context.list_functions/1` output so host applications can group functions in
+documentation UIs.
 
 Register the function on a context:
 
