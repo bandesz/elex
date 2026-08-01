@@ -47,7 +47,8 @@ defmodule Elex.Functions.Length do
   def documentation do
     %{
       signature: "length(s)",
-      description: "returns the length of a string"
+      description: "returns the length of a string",
+      category: :string
     }
   end
 end

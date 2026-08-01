@@ -42,7 +42,8 @@ defmodule Elex.Functions.Ceil do
   def documentation do
     %{
       signature: "ceil(x)",
-      description: "returns the smallest integer greater than or equal to x"
+      description: "returns the smallest integer greater than or equal to x",
+      category: :math
     }
   end
 end

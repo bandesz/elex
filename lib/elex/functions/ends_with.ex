@@ -47,7 +47,8 @@ defmodule Elex.Functions.EndsWith do
   def documentation do
     %{
       signature: "ends_with(text, suffix)",
-      description: "returns true when text ends with suffix"
+      description: "returns true when text ends with suffix",
+      category: :string
     }
   end
 end

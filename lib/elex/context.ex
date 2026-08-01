@@ -29,6 +29,16 @@ defmodule Elex.Context do
           functions: %{optional({String.t(), non_neg_integer() | :variadic}) => module()}
         }
 
+  @type function_info :: %{
+          required(:module) => module(),
+          required(:name) => String.t(),
+          required(:arity) => non_neg_integer() | :variadic,
+          required(:signature) => String.t(),
+          required(:description) => String.t(),
+          optional(:min_arity) => non_neg_integer(),
+          optional(:category) => atom()
+        }
+
   @doc """
   Registers a function module on the context.
 
@@ -85,4 +95,60 @@ defmodule Elex.Context do
   def add_variable(%__MODULE__{} = ctx, name, var) do
     Map.put(ctx, :variables, Map.put(ctx.variables, name, var))
   end
+
+  @doc """
+  Returns metadata for every function registered on the context.
+
+  Each entry is a map with `:module`, `:name`, `:arity`, `:signature`, and
+  `:description`. Variadic functions use `:arity` of `:variadic` and include
+  `:min_arity`. When a function's `documentation/0` callback includes
+  `:category`, that key is included as well.
+
+  The list is sorted by function name.
+
+  ## Examples
+
+      context = Elex.new_context()
+      Elex.Context.list_functions(context)
+      #=> [
+      #     %{module: Elex.Functions.Abs, name: "abs", arity: 1,
+      #       signature: "abs(x)", description: "...", category: :math},
+      #     ...
+      #   ]
+
+  """
+  @spec list_functions(t()) :: [function_info()]
+  def list_functions(%__MODULE__{functions: functions}) do
+    functions
+    |> Enum.map(&function_info/1)
+    |> Enum.sort_by(& &1.name)
+  end
+
+  defp function_info({_key, module}) do
+    sig = module.signature()
+    doc = module.documentation()
+    name = if is_atom(sig.name), do: Atom.to_string(sig.name), else: sig.name
+
+    base = %{
+      module: module,
+      name: name,
+      signature: doc.signature,
+      description: doc.description
+    }
+
+    info =
+      if Map.get(sig, :variadic) do
+        Map.merge(base, %{arity: :variadic, min_arity: sig.min_arity})
+      else
+        Map.put(base, :arity, sig.arity)
+      end
+
+    maybe_put_category(info, doc)
+  end
+
+  defp maybe_put_category(info, %{category: category}) when is_atom(category) do
+    Map.put(info, :category, category)
+  end
+
+  defp maybe_put_category(info, _doc), do: info
 end

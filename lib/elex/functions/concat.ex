@@ -47,7 +47,8 @@ defmodule Elex.Functions.Concat do
   def documentation do
     %{
       signature: "concat(a, b)",
-      description: "concatenates two strings"
+      description: "concatenates two strings",
+      category: :string
     }
   end
 end

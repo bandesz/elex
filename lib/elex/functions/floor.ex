@@ -42,7 +42,8 @@ defmodule Elex.Functions.Floor do
   def documentation do
     %{
       signature: "floor(x)",
-      description: "returns the largest integer less than or equal to x"
+      description: "returns the largest integer less than or equal to x",
+      category: :math
     }
   end
 end

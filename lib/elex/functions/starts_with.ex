@@ -47,7 +47,8 @@ defmodule Elex.Functions.StartsWith do
   def documentation do
     %{
       signature: "starts_with(text, prefix)",
-      description: "returns true when text starts with prefix"
+      description: "returns true when text starts with prefix",
+      category: :string
     }
   end
 end

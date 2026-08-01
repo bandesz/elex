@@ -42,7 +42,8 @@ defmodule Elex.Functions.Upper do
   def documentation do
     %{
       signature: "upper(s)",
-      description: "returns the uppercase form of a string"
+      description: "returns the uppercase form of a string",
+      category: :string
     }
   end
 end

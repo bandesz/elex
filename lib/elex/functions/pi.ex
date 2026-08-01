@@ -38,7 +38,8 @@ defmodule Elex.Functions.Pi do
   def documentation do
     %{
       signature: "pi()",
-      description: "returns the mathematical constant π (3.14159...)"
+      description: "returns the mathematical constant π (3.14159...)",
+      category: :math
     }
   end
 end

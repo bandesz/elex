@@ -56,7 +56,8 @@ defmodule Elex.Functions.If do
   def documentation do
     %{
       signature: "if(condition, value1, value2)",
-      description: "returns value1 if condition is true, otherwise value2"
+      description: "returns value1 if condition is true, otherwise value2",
+      category: :math
     }
   end
 end

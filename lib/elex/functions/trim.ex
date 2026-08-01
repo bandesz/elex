@@ -42,7 +42,8 @@ defmodule Elex.Functions.Trim do
   def documentation do
     %{
       signature: "trim(s)",
-      description: "returns a string with leading and trailing whitespace removed"
+      description: "returns a string with leading and trailing whitespace removed",
+      category: :string
     }
   end
 end

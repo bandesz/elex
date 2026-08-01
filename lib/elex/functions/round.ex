@@ -42,7 +42,8 @@ defmodule Elex.Functions.Round do
   def documentation do
     %{
       signature: "round(x)",
-      description: "returns x rounded to the nearest integer"
+      description: "returns x rounded to the nearest integer",
+      category: :math
     }
   end
 end

@@ -57,7 +57,8 @@ defmodule Elex.Functions.Min do
   def documentation do
     %{
       signature: "min(a, b, ...)",
-      description: "returns the smallest of the given values"
+      description: "returns the smallest of the given values",
+      category: :math
     }
   end
 end
