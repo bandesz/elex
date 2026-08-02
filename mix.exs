@@ -62,7 +62,7 @@ defmodule Elex.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test, "test.ci": :test]
+      preferred_envs: [precommit: :test, "test.ci": :test, "docs.ci": :dev]
     ]
   end
 
@@ -106,7 +106,8 @@ defmodule Elex.MixProject do
         "credo --strict",
         "sobelow --config",
         "deps.unlock --check-unused",
-        "deps.audit --ignore-file .audit_ignore"
+        "deps.audit --ignore-file .audit_ignore",
+        "docs.ci"
       ],
       precommit: [
         "compile --warnings-as-errors",
@@ -118,7 +119,8 @@ defmodule Elex.MixProject do
         "test"
       ],
       test: ["test --warnings-as-errors"],
-      "test.ci": ["test --cover --warnings-as-errors"]
+      "test.ci": ["test --cover --warnings-as-errors"],
+      "docs.ci": ["docs --warnings-as-errors"]
     ]
   end
 end
