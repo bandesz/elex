@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `match(text, pattern)` string function for regex matching
 - String literal escapes: `\"`, `\\`, `\n`, `\t`, `\r`, `\f`, `\b`
+- `Elex.Context.list_functions/1` to list registered functions with metadata
+  (`:module`, `:name`, `:arity`, `:signature`, `:description`, and optional
+  `:category`)
+- `Elex.list_standard_function_modules/0` to distinguish built-in functions from
+  custom ones
+- Optional `:category` atom in `Elex.Function.documentation/0` (set on all
+  built-in functions as `:math` or `:string`)
 
 ### Changed
 
