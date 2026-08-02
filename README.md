@@ -193,6 +193,7 @@ context = Elex.new_context()
 | `concat(a, b)` | Concatenate two strings |
 | `length(s)` | String length (character count) |
 | `contains(haystack, needle)` | Substring search |
+| `match(text, pattern)` | Regex match |
 | `starts_with(s, prefix)`, `ends_with(s, suffix)` | Prefix/suffix test |
 | `lower(s)`, `upper(s)`, `trim(s)` | Case and whitespace transforms |
 | `coalesce(a, b, …)` | First non-null argument (variadic; short-circuits) |
@@ -203,6 +204,7 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate(~s[concat("hello", " world")], context)     # => "hello world"
 {:ok, result} = Elex.evaluate(~s[length("abc")], context)                  # => #Decimal<3>
 {:ok, result} = Elex.evaluate(~s[contains("hello", "ell")], context)       # => true
+{:ok, result} = Elex.evaluate(~s[match("hello123", "hello[0-9]+")], context)  # => true
 {:ok, result} = Elex.evaluate(~s[starts_with("hello", "he")], context)     # => true
 {:ok, result} = Elex.evaluate(~s[ends_with("hello", "lo")], context)        # => true
 {:ok, result} = Elex.evaluate(~s[lower("ABC")], context)                      # => "abc"

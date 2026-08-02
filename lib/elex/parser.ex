@@ -9,7 +9,8 @@ defmodule Elex.Parser do
   ## Syntax overview
 
   **Literals:** decimal numbers (`3.14`, `-5`), booleans (`true`, `false`, `yes`, `no`),
-  null (`null`), strings (`"hello"`)
+  null (`null`), strings (`"hello"`) with backslash escapes (`\"`, `\\`, `\n`, `\t`,
+  `\r`, `\f`, `\b` — see the [Expression Language guide](expression-language.html))
 
   **Variables:** lowercase identifiers (`x`, `my_var`)
 
@@ -25,9 +26,9 @@ defmodule Elex.Parser do
 
   **Functions:** `name(arg1, arg2)` — built-ins include `abs`, `between`, `ceil`,
   `clamp`, `coalesce`, `concat`, `contains`, `ends_with`, `floor`, `if`,
-  `length`, `lower`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`, `sqrt`,
-  `starts_with`, `trim`, and `upper`. `min`, `max`, and `coalesce` accept two
-  or more arguments. See modules under `Elex.Functions.*`.
+  `length`, `lower`, `match`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`,
+  `sqrt`, `starts_with`, `trim`, and `upper`. `min`, `max`, and `coalesce` accept
+  two or more arguments. See modules under `Elex.Functions.*`.
 
   **Short-circuit:** `and`, `or`, and `if(condition, a, b)` skip evaluating
   operands or branches that cannot affect the result.
@@ -45,6 +46,7 @@ defmodule Elex.Parser do
 
   alias Elex.Context
   alias Elex.Parser.ErrorFormatter
+  alias Elex.Parser.StringEscape
   alias Elex.Validator
 
   # Maximum parenthesis/function-call nesting depth accepted by `parse/3`.
@@ -89,7 +91,12 @@ defmodule Elex.Parser do
     <<codepoint::utf8>>
   end
 
-  escaped_quote = string("\\\"") |> replace("\"")
+  escaped_sequence =
+    StringEscape.escapes()
+    |> Enum.map(fn {char, replacement} ->
+      string("\\" <> <<char::utf8>>) |> replace(replacement)
+    end)
+    |> then(&choice/1)
 
   unescaped_char =
     lookahead_not(choice([string("\""), string("\\")]))
@@ -100,7 +107,7 @@ defmodule Elex.Parser do
     ignore(string("\""))
     |> repeat(
       choice([
-        escaped_quote,
+        escaped_sequence,
         unescaped_char
       ])
     )
@@ -478,11 +485,13 @@ defmodule Elex.Parser do
 
   defp deeper_than?(<<>>, _limit, _depth, _in_string), do: false
 
-  # Inside a string literal the parser only recognises `\"` as an escape (see
-  # the `escaped_quote` combinator); any other backslash is an ordinary char
-  # that keeps the string open, so it is handled by the generic clause below.
-  defp deeper_than?(<<?\\, ?", rest::binary>>, limit, depth, true),
-    do: deeper_than?(rest, limit, depth, true)
+  # Inside a string literal every escape is a backslash followed by one character.
+  defp deeper_than?(<<?\\, _rest::binary>> = bin, limit, depth, true) do
+    case StringEscape.skip_binary(bin) do
+      nil -> deeper_than?(<<>>, limit, depth, true)
+      rest -> deeper_than?(rest, limit, depth, true)
+    end
+  end
 
   defp deeper_than?(<<?", rest::binary>>, limit, depth, in_string),
     do: deeper_than?(rest, limit, depth, not in_string)
@@ -595,8 +604,12 @@ defmodule Elex.Parser do
 
   defp split_group(<<>>, _depth, _in_string, _acc), do: nil
 
-  defp split_group(<<?\\, next, rest::binary>>, depth, true, acc),
-    do: split_group(rest, depth, true, <<acc::binary, ?\\, next>>)
+  defp split_group(<<?\\, _rest::binary>> = bin, depth, true, acc) do
+    case StringEscape.skip_binary(bin) do
+      nil -> split_group(<<>>, depth, true, <<acc::binary, ?\\>>)
+      rest -> split_group(rest, depth, true, acc)
+    end
+  end
 
   defp split_group(<<?", rest::binary>>, depth, in_string, acc),
     do: split_group(rest, depth, not in_string, <<acc::binary, ?">>)
@@ -621,8 +634,12 @@ defmodule Elex.Parser do
 
   defp arguments_until_close(<<>>, _depth, _in_string, acc), do: acc
 
-  defp arguments_until_close(<<?\\, next, rest::binary>>, depth, true, acc),
-    do: arguments_until_close(rest, depth, true, <<acc::binary, ?\\, next>>)
+  defp arguments_until_close(<<?\\, _rest::binary>> = bin, depth, true, acc) do
+    case StringEscape.skip_binary(bin) do
+      nil -> arguments_until_close(<<>>, depth, true, <<acc::binary, ?\\>>)
+      rest -> arguments_until_close(rest, depth, true, acc)
+    end
+  end
 
   defp arguments_until_close(<<?", rest::binary>>, depth, in_string, acc),
     do: arguments_until_close(rest, depth, not in_string, <<acc::binary, ?">>)
@@ -648,8 +665,15 @@ defmodule Elex.Parser do
   defp split_top_level_commas(<<>>, _depth, _in_string, current, acc),
     do: Enum.reverse([current | acc])
 
-  defp split_top_level_commas(<<?\\, next, rest::binary>>, depth, true, current, acc),
-    do: split_top_level_commas(rest, depth, true, <<current::binary, ?\\, next>>, acc)
+  defp split_top_level_commas(<<?\\, _rest::binary>> = bin, depth, true, current, acc) do
+    case StringEscape.skip_binary(bin) do
+      nil ->
+        split_top_level_commas(<<>>, depth, true, <<current::binary, ?\\>>, acc)
+
+      rest ->
+        split_top_level_commas(rest, depth, true, current, acc)
+    end
+  end
 
   defp split_top_level_commas(<<?", rest::binary>>, depth, in_string, current, acc),
     do: split_top_level_commas(rest, depth, not in_string, <<current::binary, ?">>, acc)

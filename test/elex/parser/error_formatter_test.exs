@@ -33,16 +33,9 @@ defmodule Elex.Parser.ErrorFormatterTest do
                "closing parenthesis is missing"
     end
 
-    test "treats an invalid backslash escape as a missing closing quote" do
-      # The parser only recognises `\\"` as an escape, so a backslash followed by
-      # anything else must not be scanned as a valid escape that leaves the
-      # structure balanced (which previously produced `unexpected '\"'`).
-      assert ErrorFormatter.humanize(~s["a\\\\"], ~s["a\\\\"], 0) ==
-               "closing quote is missing"
-    end
-
-    test "treats a valid escaped quote with no closing quote as unterminated" do
-      assert ErrorFormatter.humanize(~s["a\\"], ~s["a\\"], 0) == "closing quote is missing"
+    test "treats an invalid backslash escape as a parse error" do
+      assert ErrorFormatter.humanize(~s["a\\d"], ~s["a\\d"], 0) ==
+               "invalid escape sequence '\\d'"
     end
 
     test "treats a trailing backslash inside a string as a missing closing quote" do

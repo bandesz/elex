@@ -29,11 +29,26 @@ Elex.evaluate("no", context)    # alias for false
 
 ### Strings
 
-Strings are double-quoted. Use `\"` to escape a quote inside a string:
+Strings are double-quoted. Backslash introduces an escape sequence:
+
+| Sequence | Meaning |
+|----------|---------|
+| `\"` | double quote |
+| `\\` | backslash |
+| `\n` | newline |
+| `\t` | tab |
+| `\r` | carriage return |
+| `\f` | form feed |
+| `\b` | backspace |
+
+Any other `\` sequence is a parse error. Use `\\` when you need a literal
+backslash, for example in regex patterns:
 
 ```elixir
 Elex.evaluate(~s["hello"], context)
 Elex.evaluate(~s["say \"hi\""], context)
+Elex.evaluate(~s["line1\\nline2"], context)
+Elex.evaluate(~s[match("abc123", "\\\\d+")], context)
 ```
 
 ### Null

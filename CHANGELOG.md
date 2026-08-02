@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-02
+
+### Added
+
+- `match(text, pattern)` string function for regex matching
+- String literal escapes: `\"`, `\\`, `\n`, `\t`, `\r`, `\f`, `\b`
+
+### Changed
+
+- Unknown string escape sequences now report `invalid escape sequence '\X'` instead
+  of a generic missing closing quote
+
 ## [0.2.1] - 2026-07-12
 
 ### Changed
@@ -51,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.2.2]: https://github.com/bandesz/elex/releases/tag/v0.2.2
 [0.2.1]: https://github.com/bandesz/elex/releases/tag/v0.2.1
 [0.2.0]: https://github.com/bandesz/elex/releases/tag/v0.2.0
 [0.1.0]: https://github.com/bandesz/elex/releases/tag/v0.1.0

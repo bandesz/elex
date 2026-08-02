@@ -119,6 +119,17 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate(~s["hello \\"world\\""]) == "hello \"world\""
       assert parse_and_evaluate(~s["a \\" b \\" c"]) == "a \" b \" c"
       assert parse_and_evaluate("\"\\\"\"") == "\""
+      assert parse_and_evaluate(~s["line1\\nline2"]) == "line1\nline2"
+      assert parse_and_evaluate(~s["tab\\there"]) == "tab\there"
+      assert parse_and_evaluate(~s["back\\\\slash"]) == "back\\slash"
+      assert parse_and_evaluate(~s["cr\\rreturn"]) == "cr\rreturn"
+      assert parse_and_evaluate(~s["form\\ffeed"]) == "form\ffeed"
+      assert parse_and_evaluate(~s["back\\bspace"]) == "back\bspace"
+    end
+
+    test "rejects invalid string escape sequences" do
+      assert {:error, reason} = Parser.parse(~s["bad\\d"], Elex.new_context())
+      assert reason =~ "invalid escape sequence"
     end
 
     test "evaluates unary negation (not)" do
