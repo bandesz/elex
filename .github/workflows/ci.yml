@@ -104,6 +104,9 @@ jobs:
       - name: Check for unused dependencies
         run: mix deps.unlock --check-unused
 
+      - name: Verify documentation
+        run: MIX_ENV=dev mix docs --warnings-as-errors
+
       - name: Audit dependencies
         run: mix deps.audit --ignore-file .audit_ignore
 

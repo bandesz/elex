@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:category`)
 - `Elex.list_standard_function_modules/0` to distinguish built-in functions from
   custom ones
-- Optional `:category` atom in `Elex.Function.documentation/0` (set on all
-  built-in functions as `:math` or `:string`)
+- Optional `:category` atom in the `documentation/0` callback on `Elex.Function`
+  (set on all built-in functions as `:math` or `:string`)
 
 ### Changed
 
