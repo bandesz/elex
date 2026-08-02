@@ -70,12 +70,35 @@ context = Elex.new_context()
 | `concat(a, b)` | Concatenate two strings |
 | `length(s)` | Character count (returns a decimal) |
 | `contains(haystack, needle)` | `true` when `needle` is a substring of `haystack` |
+| `match(text, pattern)` | `true` when `text` matches the regex `pattern` |
 | `starts_with(s, prefix)` | Prefix test |
 | `ends_with(s, suffix)` | Suffix test |
 | `lower(s)` | Lowercase transform |
 | `upper(s)` | Uppercase transform |
 | `trim(s)` | Remove leading and trailing whitespace |
 | `coalesce(a, b, …)` | First non-null argument (variadic; short-circuits) |
+
+### `match`
+
+`match(text, pattern)` returns `true` when `text` matches the regex `pattern`.
+Patterns use [Elixir/PCRE regex syntax](https://hexdocs.pm/elixir/Regex.html). The
+match succeeds when the pattern matches **anywhere** in `text` (like
+`contains`, not full-string anchoring).
+
+Literal backslashes in patterns must be escaped in the expression string — use
+`\\` (see [Expression Language](expression-language.md#strings) for all string
+escapes). Invalid patterns are reported at evaluation time, not parse time.
+
+```elixir
+context = Elex.new_context()
+
+{:ok, result} = Elex.evaluate(~s[match("hello123", "hello[0-9]+")], context) # true
+{:ok, result} = Elex.evaluate(~s[match("abc123", "abc\\\\d+")], context)        # true
+{:ok, result} = Elex.evaluate(~s[match("HELLO", "(?i)hello")], context)     # true
+
+{:error, reason} = Elex.evaluate(~s[match("x", "[")], context)
+#=> {:error, "Evaluation error: ...invalid regex pattern..."}
+```
 
 ### Examples
 
@@ -85,6 +108,7 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate(~s[concat("hello", " world")], context)   # "hello world"
 {:ok, result} = Elex.evaluate(~s[length("abc")], context)              # #Decimal<3>
 {:ok, result} = Elex.evaluate(~s[contains("hello", "ell")], context)   # true
+{:ok, result} = Elex.evaluate(~s[match("hello123", "hello[0-9]+")], context) # true
 {:ok, result} = Elex.evaluate(~s[lower("ABC")], context)              # "abc"
 {:ok, result} = Elex.evaluate("coalesce(null, 5)", context)            # #Decimal<5>
 ```

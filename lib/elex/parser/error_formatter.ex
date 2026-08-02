@@ -17,6 +17,8 @@ defmodule Elex.Parser.ErrorFormatter do
   @word_operators ~w(and or)
   @reserved_operators ~w(and or not)
 
+  alias Elex.Parser.StringEscape
+
   @doc """
   Builds a human-readable message for a parser failure.
 
@@ -61,12 +63,15 @@ defmodule Elex.Parser.ErrorFormatter do
   defp scan([], depth, false) when depth > 0, do: {:error, "closing parenthesis is missing"}
   defp scan([], _depth, false), do: :ok
 
-  # Inside a string literal. The parser only recognises `\"` as an escape (see
-  # the `escaped_quote` combinator in `Elex.Parser`); a backslash followed by
-  # anything else - or a trailing backslash - can never close the string, so we
-  # report it consistently as a missing closing quote.
-  defp scan([?\\, ?" | rest], depth, true), do: scan(rest, depth, true)
-  defp scan([?\\ | _rest], _depth, true), do: {:error, "closing quote is missing"}
+  # Inside a string literal every escape is a backslash followed by one character.
+  defp scan([?\\, char | rest], depth, true) do
+    case StringEscape.decode(char) do
+      {:ok, _} -> scan(rest, depth, true)
+      {:error, message} -> {:error, message}
+    end
+  end
+
+  defp scan([?\\], _depth, true), do: {:error, "closing quote is missing"}
   defp scan([?" | rest], depth, true), do: scan(rest, depth, false)
   defp scan([_char | rest], depth, true), do: scan(rest, depth, true)
 
@@ -133,8 +138,12 @@ defmodule Elex.Parser.ErrorFormatter do
   defp scan_groups([], _in_string, [kind | _], _word), do: kind
   defp scan_groups([], _in_string, [], _word), do: :none
 
-  defp scan_groups([?\\, _escaped | rest], true, stack, word),
-    do: scan_groups(rest, true, stack, word)
+  defp scan_groups([?\\ | rest] = chars, true, stack, word) do
+    case StringEscape.skip_charlist(chars) do
+      nil -> scan_groups(rest, true, stack, word)
+      rest_chars -> scan_groups(rest_chars, true, stack, word)
+    end
+  end
 
   defp scan_groups([?" | rest], true, stack, word), do: scan_groups(rest, false, stack, word)
   defp scan_groups([_char | rest], true, stack, word), do: scan_groups(rest, true, stack, word)

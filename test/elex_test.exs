@@ -37,6 +37,7 @@ defmodule ElexTest do
                "if",
                "length",
                "lower",
+               "match",
                "max",
                "min",
                "mod",

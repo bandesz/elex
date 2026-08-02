@@ -163,10 +163,7 @@ defmodule Elex.ParserTest do
     end
 
     test "invalid backslash escape inside a string", %{ctx: ctx} do
-      # The parser only supports `\\"` as an escape, so these never terminate the
-      # string cleanly and should read as a missing closing quote rather than an
-      # unexpected backslash/quote token.
-      assert_message(~s["a\\\\"], "closing quote is missing", ctx)
+      assert_message(~s["a\\d"], "invalid escape sequence '\\d'", ctx)
       assert_message(~s["a\\], "closing quote is missing", ctx)
     end
 

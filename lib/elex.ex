@@ -11,8 +11,8 @@ defmodule Elex do
   - Literals: decimals, booleans (`true`/`false`, `yes`/`no`), strings, `null`
   - Variables and built-in functions (`abs`, `between`, `ceil`, `clamp`,
     `coalesce`, `concat`, `contains`, `ends_with`, `floor`, `if`, `length`,
-    `lower`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`, `sqrt`,
-    `starts_with`, `trim`, `upper`)
+    `lower`, `match`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`,
+    `sqrt`, `starts_with`, `trim`, `upper`)
   - Variadic `min`, `max`, and `coalesce` (two or more arguments)
   - Type checking and validation
 
@@ -60,6 +60,7 @@ defmodule Elex do
     Elex.Functions.If,
     Elex.Functions.Length,
     Elex.Functions.Lower,
+    Elex.Functions.Match,
     Elex.Functions.Max,
     Elex.Functions.Min,
     Elex.Functions.Mod,
