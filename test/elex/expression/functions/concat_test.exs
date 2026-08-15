@@ -21,9 +21,18 @@ defmodule Elex.Functions.ConcatTest do
     end
   end
 
-  describe "concat/2 function" do
+  describe "concat function" do
     test "concatenates two strings" do
       assert parse_and_evaluate(~s[concat("a", "b")]) == "ab"
+    end
+
+    test "returns a single string argument unchanged" do
+      assert parse_and_evaluate(~s[concat("hello")]) == "hello"
+    end
+
+    test "concatenates three or more strings" do
+      assert parse_and_evaluate(~s[concat("a", "b", "c")]) == "abc"
+      assert parse_and_evaluate(~s[concat("a", "b", "c", "d")]) == "abcd"
     end
 
     test "evaluates with variables" do
@@ -44,12 +53,17 @@ defmodule Elex.Functions.ConcatTest do
                parse(~s[concat(1, "b")])
     end
 
+    test "non-string later argument" do
+      assert {:error, "concat function expects string arguments, got decimal"} =
+               parse(~s[concat("a", "b", 1)])
+    end
+
     test "propagates nested validation errors" do
       assert {:error, "variable 'missing' does not exist"} = parse("concat(missing, \"b\")")
     end
 
     test "wrong number of arguments" do
-      assert {:error, "concat function expects 2 arguments"} = parse("concat(\"a\")")
+      assert {:error, "concat function expects 1 argument"} = parse("concat()")
     end
   end
 
@@ -57,7 +71,7 @@ defmodule Elex.Functions.ConcatTest do
     test "returns documentation map" do
       doc = Elex.Functions.Concat.documentation()
       assert is_map(doc)
-      assert doc.signature == "concat(a, b)"
+      assert doc.signature == "concat(a, ...)"
       assert is_binary(doc.description)
     end
   end

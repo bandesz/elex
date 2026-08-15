@@ -1,53 +1,64 @@
 defmodule Elex.Functions.Concat do
   @moduledoc """
-  Concatenates two strings.
+  Concatenates one or more strings.
 
   ## Expression syntax
 
+      concat("a")
       concat("a", "b")
+      concat("a", "b", "c")
   """
   @behaviour Elex.Function
 
   alias Elex.Function
+  alias Elex.Validator
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :concat,
-      arity: 2
+      variadic: true,
+      min_arity: 1
     }
   end
 
   @impl Function
   @doc false
-  def validate([arg1_ast, arg2_ast], context) do
-    alias Elex.Validator
-
-    with {:ok, :string} <- Validator.validate(arg1_ast, context),
-         {:ok, :string} <- Validator.validate(arg2_ast, context) do
-      {:ok, :string}
-    else
-      {:ok, other_type} ->
-        {:error, "concat function expects string arguments, got #{other_type}"}
-
-      {:error, reason} ->
-        {:error, reason}
+  def validate(args_ast, context) do
+    case validate_all_string(args_ast, context) do
+      :ok -> {:ok, :string}
+      {:error, _} = err -> err
     end
+  end
+
+  defp validate_all_string(args_ast, context) do
+    Enum.reduce_while(args_ast, :ok, fn arg_ast, :ok ->
+      case Validator.validate(arg_ast, context) do
+        {:ok, :string} ->
+          {:cont, :ok}
+
+        {:ok, other_type} ->
+          {:halt, {:error, "concat function expects string arguments, got #{other_type}"}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
   end
 
   @impl Function
   @doc false
-  def call([a, b]) when is_binary(a) and is_binary(b) do
-    {:ok, a <> b}
+  def call(args) do
+    {:ok, Enum.join(args)}
   end
 
   @impl Function
   @doc false
   def documentation do
     %{
-      signature: "concat(a, b)",
-      description: "concatenates two strings",
+      signature: "concat(a, ...)",
+      description: "concatenates one or more strings",
       category: :string
     }
   end

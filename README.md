@@ -190,7 +190,7 @@ context = Elex.new_context()
 
 | Function | Description |
 |----------|-------------|
-| `concat(a, b)` | Concatenate two strings |
+| `concat(a, …)` | Concatenate one or more strings (variadic) |
 | `length(s)` | String length (character count) |
 | `contains(haystack, needle)` | Substring search |
 | `match(text, pattern)` | Regex match |
