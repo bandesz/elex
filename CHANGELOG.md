@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `concat` is now variadic and accepts one or more string arguments
-  (`concat("a")` returns `"a"`)
+- `concat` is now variadic and accepts zero or more string arguments
+  (`concat()` returns `""`; `concat("a")` returns `"a"`)
 
 ## [0.2.2] - 2026-08-02
 

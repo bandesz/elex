@@ -62,8 +62,8 @@ defmodule Elex.Functions.ConcatTest do
       assert {:error, "variable 'missing' does not exist"} = parse("concat(missing, \"b\")")
     end
 
-    test "wrong number of arguments" do
-      assert {:error, "concat function expects 1 argument"} = parse("concat()")
+    test "returns empty string with no arguments" do
+      assert parse_and_evaluate("concat()") == ""
     end
   end
 
@@ -71,7 +71,7 @@ defmodule Elex.Functions.ConcatTest do
     test "returns documentation map" do
       doc = Elex.Functions.Concat.documentation()
       assert is_map(doc)
-      assert doc.signature == "concat(a, ...)"
+      assert doc.signature == "concat(...)"
       assert is_binary(doc.description)
     end
   end
