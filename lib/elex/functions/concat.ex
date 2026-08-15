@@ -1,9 +1,10 @@
 defmodule Elex.Functions.Concat do
   @moduledoc """
-  Concatenates one or more strings.
+  Concatenates zero or more strings.
 
   ## Expression syntax
 
+      concat()
       concat("a")
       concat("a", "b")
       concat("a", "b", "c")
@@ -19,7 +20,7 @@ defmodule Elex.Functions.Concat do
     %{
       name: :concat,
       variadic: true,
-      min_arity: 1
+      min_arity: 0
     }
   end
 
@@ -57,8 +58,8 @@ defmodule Elex.Functions.Concat do
   @doc false
   def documentation do
     %{
-      signature: "concat(a, ...)",
-      description: "concatenates one or more strings",
+      signature: "concat(...)",
+      description: "concatenates zero or more strings",
       category: :string
     }
   end

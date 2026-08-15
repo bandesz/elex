@@ -67,7 +67,7 @@ context = Elex.new_context()
 
 | Function | Description |
 |----------|-------------|
-| `concat(a, …)` | Concatenate one or more strings (variadic) |
+| `concat(...)` | Concatenate zero or more strings (variadic) |
 | `length(s)` | Character count (returns a decimal) |
 | `contains(haystack, needle)` | `true` when `needle` is a substring of `haystack` |
 | `match(text, pattern)` | `true` when `text` matches the regex `pattern` |
