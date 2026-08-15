@@ -149,6 +149,7 @@ Functions use familiar call syntax: `name(arg1, arg2)`. See the
 [Functions](functions.md) reference for the full list.
 
 `min`, `max`, and `coalesce` are variadic — they accept two or more arguments.
+`concat` is also variadic and accepts one or more string arguments.
 
 `pi()` takes no arguments.
 

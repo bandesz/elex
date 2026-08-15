@@ -13,7 +13,8 @@ defmodule Elex do
     `coalesce`, `concat`, `contains`, `ends_with`, `floor`, `if`, `length`,
     `lower`, `match`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`,
     `sqrt`, `starts_with`, `trim`, `upper`)
-  - Variadic `min`, `max`, and `coalesce` (two or more arguments)
+  - Variadic `min`, `max`, and `coalesce` (two or more arguments) and
+    `concat` (one or more arguments)
   - Type checking and validation
 
   ## Quick start
