@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-15
+
 ### Changed
 
 - `concat` is now variadic and accepts zero or more string arguments
@@ -75,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.2.3]: https://github.com/bandesz/elex/releases/tag/v0.2.3
 [0.2.2]: https://github.com/bandesz/elex/releases/tag/v0.2.2
 [0.2.1]: https://github.com/bandesz/elex/releases/tag/v0.2.1
 [0.2.0]: https://github.com/bandesz/elex/releases/tag/v0.2.0
