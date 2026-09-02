@@ -509,6 +509,50 @@ defmodule Elex.Units.FunctionsTest do
     end
   end
 
+  describe "if and coalesce with literal zero" do
+    test "if true then 10cm else 0 is 10 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("if(true, 10cm, 0)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<10 cm>"
+    end
+
+    test "if false then 10cm else 0 is 0 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("if(false, 10cm, 0)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<0 cm>"
+    end
+
+    test "if width greater than 0 then width else 0 is 10 cm", %{ctx: ctx} do
+      {:ok, ctx} = Elex.add_variable(ctx, "width", {10, "cm"}, category: :length)
+
+      assert {:ok, qty} = Elex.evaluate("if(width > 0, width, 0)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<10 cm>"
+    end
+
+    test "coalesce of null, 0, and 10cm is 0 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("coalesce(null, 0, 10cm)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<0 cm>"
+    end
+
+    test "coalesce of null, 10cm, and 0 is 10 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("coalesce(null, 10cm, 0)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<10 cm>"
+    end
+
+    test "coalesce of 10cm and 0 is 10 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("coalesce(10cm, 0)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<10 cm>"
+    end
+
+    test "rejects if mixing a length and a non-zero number", %{ctx: ctx} do
+      assert {:error, message} = Elex.validate("if(true, 10cm, 1)", ctx)
+      assert message == "if branches must have the same type, got length and number"
+    end
+
+    test "rejects coalesce of a quantity and a non-zero number", %{ctx: ctx} do
+      assert {:error, message} = Elex.validate("coalesce(10cm, 1)", ctx)
+      assert message == "coalesce arguments must have the same type, got length and number"
+    end
+  end
+
   describe "between converts into the first argument's unit" do
     test "same-category between validates as boolean", %{ctx: ctx} do
       assert Elex.validate("between(50cm, 1m, 2m)", ctx) == {:ok, :boolean}

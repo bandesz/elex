@@ -30,7 +30,7 @@ defmodule Elex.Functions.Coalesce do
     import Elex.Labels
 
     with {:ok, types} <- validate_all(args_ast, context, Validator),
-         {:ok, result_type} <- unify_types(types) do
+         {:ok, result_type} <- unify_types(args_ast, types, context) do
       {:ok, result_type}
     end
   end
@@ -82,17 +82,20 @@ defmodule Elex.Functions.Coalesce do
     end
   end
 
-  defp unify_types(types) do
+  defp unify_types(args_ast, types, context) do
     import Elex.Labels
 
-    case types |> Enum.reject(&is_nil/1) |> Enum.uniq() do
-      [] ->
-        {:ok, nil}
+    {asts, kept_types} =
+      args_ast
+      |> Enum.zip(types)
+      |> Enum.reject(fn {_ast, type} -> is_nil(type) end)
+      |> Enum.unzip()
 
-      [type] ->
+    case Validator.unify_with_literal_zero(asts, kept_types, context) do
+      {:ok, type} ->
         {:ok, type}
 
-      [type1, type2 | _] ->
+      {:mismatch, type1, type2} ->
         {:error,
          "coalesce arguments must have the same type, got #{label(type1)} and #{label(type2)}"}
     end
