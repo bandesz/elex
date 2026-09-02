@@ -11,13 +11,11 @@ Add both Elex and Ash to your dependencies:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.2.3"},
+    {:elex, "~> 0.3.0"},
     {:ash, "~> 3.22"}
   ]
 end
 ```
-
-Unit support is **Unreleased**; Hex `0.2.3` does not include it.
 
 `Elex.AshValidation` is compiled only when Ash is available. Without Ash in
 your dependency tree, the module is not present.

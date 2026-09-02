@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-02
+
 ### Added
 
 - Opt-in unit catalogs via `Elex.Units.Catalog` and `Elex.Context.put_units/2`
@@ -118,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.3.0]: https://github.com/bandesz/elex/releases/tag/v0.3.0
 [0.2.3]: https://github.com/bandesz/elex/releases/tag/v0.2.3
 [0.2.2]: https://github.com/bandesz/elex/releases/tag/v0.2.2
 [0.2.1]: https://github.com/bandesz/elex/releases/tag/v0.2.1
