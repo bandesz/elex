@@ -6,7 +6,8 @@ defmodule Elex do
 
   - Arithmetic operations (`+`, `-`, `*`, `/`, `%`) and unary minus
   - Comparison operators (`<`, `>`, `<=`, `>=`, `==`, `!=`) for decimals,
-    booleans, strings, `null`, and same-dimension quantities
+    booleans, strings, `null`, same-dimension quantities, and a literal `0`
+    next to an additive quantity
   - Boolean operations (`and`, `or`, `not`) with short-circuit evaluation
   - Literals: decimals, booleans (`true`/`false`, `yes`/`no`), strings, `null`
   - Variables and built-in functions (`abs`, `add_unit`, `between`, `ceil`,

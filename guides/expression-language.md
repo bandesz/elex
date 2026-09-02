@@ -129,7 +129,10 @@ Comparison operators return a boolean. Operands must have the same type:
 
 - **Decimals** — numeric ordering
 - **Quantities** — same dimension; the right-hand unit converts into the left
-  (non-additive categories also require the same unit)
+  (non-additive categories also require the same unit). A **literal** `0`
+  (also `0.0`, `-0`) is allowed next to an additive quantity
+  (`10cm > 0`); a non-zero number is not (`10cm > 1`). Temperature-style
+  non-additive quantities still require a unit (`1C > 0` is an error)
 - **Strings** — lexicographic ordering
 - **Booleans** — `true`/`false` ordering
 - **Null** — equality (`==`, `!=`) only
