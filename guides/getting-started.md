@@ -10,12 +10,10 @@ Add `elex` to your `mix.exs` dependencies:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.2.3"}
+    {:elex, "~> 0.3.0"}
   ]
 end
 ```
-
-Unit support is **Unreleased**; Hex `0.2.3` does not include it.
 
 If you plan to use Ash resource validation, also add Ash (Elex treats it as an
 optional dependency):

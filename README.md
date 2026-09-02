@@ -36,13 +36,10 @@ Add `elex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.2.3"}
+    {:elex, "~> 0.3.0"}
   ]
 end
 ```
-
-Unit support (`%Elex.Quantity{}`, catalogs, `convert/2`) is **Unreleased**.
-Hex `0.2.3` does not include it; use this repository until the next release.
 
 ## Quick Start
 
