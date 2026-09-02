@@ -99,8 +99,15 @@ The same conversion applies to overlapping dimensions in `*` and `/`:
 # qty => #Elex.Quantity<0.001 m^2>
 ```
 
-A number cannot be added to a quantity (`1m + 2` is `cannot add length and number`).
-Same-category division cancels to a `Decimal` (`4m / 2m` → `2`).
+A number cannot be added to a quantity (`1m + 2` and `10cm + 0` are both
+`cannot add length and number`). Same-category division cancels to a
+`Decimal` (`4m / 2m` → `2`).
+
+Comparisons (`<`, `>`, `<=`, `>=`, `==`, `!=`) require the same category.
+A **literal** `0` (`0`, `0.0`, `-0`) may stand in for the unique zero of an
+**additive** quantity on either side (`10cm > 0`, `0 < 10cm`). Variables
+and computed zeros (`10cm > count`, `10cm > (1 - 1)`) stay type errors,
+as does any other number (`10cm > 1`).
 
 ## Target unit
 
@@ -322,13 +329,16 @@ to another temperature scale.
 # qty => #Elex.Quantity<2 mm>
 ```
 
-`min`, `max`, `clamp`, `if`, `coalesce`, and `between` require the same
-category. On additive categories they convert later quantity arguments into
-the first quantity argument's unit — `min(1m, 1km)` is valid, and
-`if(false, 1m, 100cm)` returns metres. `between(50cm, 1m, 2m)` is `false`
-because 50 cm is below 1 m after converting into centimetres. On non-additive
-categories the units must already match; `min(1C, 32F)` is an error. `sqrt`,
-`pow`, `rem`, `mod`, and `%` reject unitful arguments.
+`min`, `max`, `clamp`, `if`, `coalesce`, and `between` (`:point` functions)
+require the same category. On additive categories they convert later quantity
+arguments into the first quantity argument's unit — `min(1m, 1km)` is
+valid, and `if(false, 1m, 100cm)` returns metres. A literal `0` (`0`, `0.0`,
+`-0`) is also allowed next to an additive quantity (`min(10cm, 0)`,
+`clamp(width, 0, 10cm)`, `if(width > 0, width, 0)`); variables and `1 - 1`
+are not. `between(50cm, 1m, 2m)` is `false` because 50 cm is below 1 m after
+converting into centimetres. On non-additive categories the units must
+already match; `min(1C, 32F)` is an error. `sqrt`, `pow`, `rem`, `mod`, and
+`%` reject unitful arguments.
 
 ## Variables
 
@@ -395,6 +405,8 @@ Linear `:point` functions still convert:
 
 ```elixir
 Elex.evaluate("1C > 0C", context)        # {:ok, true}
+Elex.evaluate("1C > 0", context)         # error (unitless 0 is not unique across C/F/K)
+Elex.evaluate("min(1C, 0)", context)     # error
 Elex.evaluate("min(1C, 2C)", context)    # {:ok, #Elex.Quantity<1 C>}
 Elex.evaluate("ceil(1.2C)", context)     # {:ok, #Elex.Quantity<2 C>}
 Elex.evaluate("-5C", context)            # {:ok, #Elex.Quantity<-5 C>}

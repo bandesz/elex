@@ -14,7 +14,11 @@ defmodule Elex.Function do
   * `:point` — same category. The result unit is the first **quantity**
     argument (boolean/`null` args are skipped). Additive categories convert
     later quantity args into that unit. Non-additive categories require
-    `Elex.Unit.same?/2` (no silent F→C).
+    `Elex.Unit.same?/2` (no silent F→C). Custom functions that validate with
+    `Elex.Validator.same_numeric_type/2` inherit the same literal-`0` rule
+    as built-ins: a literal `0` (`0`, `0.0`, `-0`) next to an additive
+    quantity is that quantity's zero. Language `+` / `-` do not use the
+    helper and still reject `10cm + 0`.
   * `:additive` — reject non-additive arguments. Linear same-category args
     still convert into the first quantity argument's unit. This is the
     default, so unmarked `double(1C)` errors and `double(1m)` works.

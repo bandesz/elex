@@ -56,8 +56,10 @@ otherwise. Also returns an error when `low > high`.
 With a unit catalog, `between` accepts same-category quantities. On additive
 categories it converts later arguments into the first argument’s unit
 (`between(50cm, 1m, 2m)` is `false` — 50 cm is below 1 m). `clamp`, `min`,
-and `max` do the same: `min(1m, 1km)` is valid. On non-additive categories
-the units must already match — `min(1C, 32F)` is an error. See
+and `max` do the same: `min(1m, 1km)` is valid. A literal `0` (`0`, `0.0`,
+`-0`) may stand in for the unique zero of an additive quantity
+(`clamp(width, 0, 10cm)`, `if(width > 0, width, 0)`). On non-additive
+categories the units must already match — `min(1C, 32F)` is an error. See
 [Units](units.md) for `ceil` / `round` on the current magnitude and for
 `additive: false`.
 
