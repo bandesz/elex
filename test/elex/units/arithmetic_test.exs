@@ -101,6 +101,15 @@ defmodule Elex.Units.ArithmeticTest do
       assert message == "cannot compare length and number"
     end
 
+    test "comparing a quantity to literal 0 is boolean", %{ctx: ctx} do
+      assert Elex.validate("10cm > 0", ctx) == {:ok, :boolean}
+    end
+
+    test "rejects comparing a quantity to a computed zero", %{ctx: ctx} do
+      assert {:error, message} = Elex.validate("10cm > (1 - 1)", ctx)
+      assert message == "cannot compare length and number"
+    end
+
     test "category: :length on 1m * 1m errors that length was expected", %{ctx: ctx} do
       assert {:error, message} = Elex.validate("1m * 1m", ctx, category: :length)
       assert message == "length was expected, got length^2"
@@ -161,6 +170,12 @@ defmodule Elex.Units.ArithmeticTest do
       assert {:ok, %Elex.Quantity{value: value, unit: unit}} = Elex.evaluate("0 * 1m", ctx)
       assert %Unit{monomial: %{"m" => 1}} = unit
       assert Decimal.compare(value, Decimal.new("0")) == :eq
+    end
+
+    test "compares a quantity to literal 0", %{ctx: ctx} do
+      assert Elex.evaluate("10cm > 0", ctx) == {:ok, true}
+      assert Elex.evaluate("10cm > 0.0", ctx) == {:ok, true}
+      assert Elex.evaluate("10cm > -0", ctx) == {:ok, true}
     end
 
     test "evaluates scientific notation with a unit suffix", %{ctx: ctx} do

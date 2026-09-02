@@ -269,7 +269,7 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
                  )
 
         assert error.field == :expr
-        assert error.message =~ "cannot compare length and number"
+        assert error.message == "length was expected, got yes/no"
         assert error.value == "1mm > 0"
       end
 

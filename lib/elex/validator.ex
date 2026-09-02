@@ -669,7 +669,7 @@ defmodule Elex.Validator do
             end
 
           _ ->
-            comparison_type_error(op, type1, type2, ctx)
+            unitless_zero_or_compare_error(op, a, b, type1, type2, ctx)
         end
 
       [{:error, err}, _] ->
@@ -871,6 +871,30 @@ defmodule Elex.Validator do
     Enum.all?(rest, &Unit.same?(first_unit, Unit.new!(&1)))
   end
 
+  defp unitless_zero_or_compare_error(op, a, b, type1, type2, ctx) do
+    if unitless_zero_with_additive?(a, b, type1, type2, ctx) do
+      {:ok, :boolean}
+    else
+      comparison_type_error(op, type1, type2, ctx)
+    end
+  end
+
+  defp literal_zero?(%Decimal{} = decimal), do: Decimal.compare(decimal, 0) == :eq
+  defp literal_zero?({:-, operand}) when not is_list(operand), do: literal_zero?(operand)
+  defp literal_zero?(_ast), do: false
+
+  defp unitless_zero_with_additive?(a, b, type1, type2, ctx) do
+    (literal_zero?(a) and additive_quantity_type?(type2, ctx)) or
+      (literal_zero?(b) and additive_quantity_type?(type1, ctx))
+  end
+
+  defp additive_quantity_type?(type, ctx) do
+    case numeric_dim(type, ctx) do
+      {:ok, dim} when map_size(dim) > 0 -> additive_dim?(dim, ctx)
+      _ -> false
+    end
+  end
+
   defp additive_dim?(dim, _ctx) when map_size(dim) == 0, do: true
 
   defp additive_dim?(dim, %{units: %Catalog{} = catalog}) do
@@ -920,7 +944,7 @@ defmodule Elex.Validator do
             end
 
           _ ->
-            comparison_type_error(op, type1, type2, ctx)
+            unitless_zero_or_compare_error(op, a, b, type1, type2, ctx)
         end
 
       [{:error, err}, _] ->
