@@ -176,6 +176,42 @@ defmodule Elex.Validator do
   defp wrap_same_numeric(type), do: {:ok, type}
 
   @doc false
+  @spec unify_with_literal_zero([term()], [term()], Context.t()) ::
+          {:ok, term()} | {:mismatch, term(), term()}
+  def unify_with_literal_zero(asts, types, ctx) when is_list(asts) do
+    pairs = Enum.zip(asts, types)
+    {zeros, rest} = Enum.split_with(pairs, fn {ast, _type} -> literal_zero?(ast) end)
+    rest_types = rest |> Enum.map(&elem(&1, 1)) |> Enum.uniq()
+
+    case {rest_types, zeros} do
+      {[], []} ->
+        {:ok, nil}
+
+      {[], [_ | _]} ->
+        {:ok, :decimal}
+
+      {[type], []} ->
+        {:ok, type}
+
+      {[type], [_ | _]} ->
+        unify_zero_with_type(type, ctx)
+
+      {[type1, type2 | _], _} ->
+        {:mismatch, type1, type2}
+    end
+  end
+
+  defp unify_zero_with_type(:decimal, _ctx), do: {:ok, :decimal}
+
+  defp unify_zero_with_type(type, ctx) do
+    if additive_quantity_type?(type, ctx) do
+      {:ok, type}
+    else
+      {:mismatch, type, :decimal}
+    end
+  end
+
+  @doc false
   @spec quantity_unit(term(), Context.t()) :: {:ok, Unit.t()} | :none
   def quantity_unit(ast, ctx) do
     do_quantity_unit(ast, ctx)

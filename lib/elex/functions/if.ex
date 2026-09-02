@@ -30,10 +30,12 @@ defmodule Elex.Functions.If do
     with {:ok, :boolean} <- Validator.validate(cond_ast, context),
          {:ok, type1} <- Validator.validate(val1_ast, context),
          {:ok, type2} <- Validator.validate(val2_ast, context) do
-      if type1 == type2 do
-        {:ok, type1}
-      else
-        {:error, "if branches must have the same type, got #{label(type1)} and #{label(type2)}"}
+      case Validator.unify_with_literal_zero([val1_ast, val2_ast], [type1, type2], context) do
+        {:ok, type} ->
+          {:ok, type}
+
+        {:mismatch, left, right} ->
+          {:error, "if branches must have the same type, got #{label(left)} and #{label(right)}"}
       end
     else
       {:ok, cond_type} ->
