@@ -5,7 +5,7 @@ Allow a **literal** `0` with no unit when comparing or combining with an **addit
 Follow-on to [units](../units/index.md). User flows below are canonical.
 
 ## Implementation status
-**Status:** in progress
+**Status:** in progress — implementation review
 
 ## Problem and constraints
 
@@ -154,7 +154,7 @@ Library-only ExUnit and unit TDD (`test-driven-development`). No UI flow tests. 
 Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functions.md` (`clamp` / `between` / `if`). `CHANGELOG.md` Unreleased. `lib/elex/function.ex` `:point` / `same_numeric_type` note.
 
 ## Batch 1: Unitless zero
-**Status:** in progress
+**Status:** done
 **Scope:** validate + evaluate + guides. Excludes: `+` / `-` identity, non-additive 0, runtime zeros.
 
 ### Task 1.1: Comparison operators
@@ -200,7 +200,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `min` / `clamp`; `+` / `-`
 
 ### Task 1.4: Guides and changelog
-**Status:** in progress
+**Status:** done — `ff91cd5`
 
 - Files: Modify `guides/units.md`, `guides/functions.md`, `CHANGELOG.md`, `lib/elex/function.ex`
 - TDD: no
