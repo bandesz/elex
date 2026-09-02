@@ -172,7 +172,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `min` / `if` / `+`
 
 ### Task 1.2: `min` / `max` / `clamp` / `between`
-**Status:** in progress
+**Status:** done — `1fd5b6e`
 
 - Files: Modify `lib/elex/validator.ex` (`same_numeric_type/2`), `lib/elex/evaluator.ex` (`align_to_unit/3`); Test `test/elex/units/functions_test.exs`, `test/elex/units/temperature_test.exs`
 - TDD: yes
@@ -186,7 +186,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `if` / `coalesce`; comparison ops (Task 1.1)
 
 ### Task 1.3: `if` / `coalesce`
-**Status:** pending
+**Status:** in progress
 
 - Files: Modify `lib/elex/functions/if.ex`, `lib/elex/functions/coalesce.ex` (and validator unify helper if shared); Test `test/elex/units/functions_test.exs`, `test/elex/units/temperature_test.exs`
 - TDD: yes
