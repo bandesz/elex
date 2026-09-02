@@ -14,7 +14,7 @@ defmodule Elex.Functions.ModTest do
 
     case Parser.parse(expression, ctx) do
       {:ok, ast, _type} ->
-        Evaluator.evaluate(ast, ctx)
+        Evaluator.evaluate!(ast, ctx)
 
       {:error, reason} ->
         flunk("Parsing and evaluation failed unexpectedly: #{reason}")
@@ -65,7 +65,7 @@ defmodule Elex.Functions.ModTest do
     test "returns evaluation error when dividing by zero" do
       ctx = Elex.new_context()
 
-      assert {:error, "Evaluation error: " <> _} =
+      assert {:error, _} =
                Elex.evaluate("mod(10, 0)", ctx)
     end
 

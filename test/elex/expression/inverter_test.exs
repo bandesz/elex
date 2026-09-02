@@ -207,7 +207,7 @@ defmodule Elex.InverterTest do
           "value" => %{value: Decimal.new("212"), type: :decimal}
         })
 
-      celsius_result = Evaluator.evaluate(result, fahrenheit_ctx)
+      celsius_result = Evaluator.evaluate!(result, fahrenheit_ctx)
       assert Decimal.equal?(celsius_result, Decimal.new("100"))
 
       # Test another common conversion: 0°C = 32°F
@@ -217,7 +217,7 @@ defmodule Elex.InverterTest do
           "value" => %{value: Decimal.new("32"), type: :decimal}
         })
 
-      celsius_freezing = Evaluator.evaluate(result, freezing_ctx)
+      celsius_freezing = Evaluator.evaluate!(result, freezing_ctx)
       assert Decimal.equal?(celsius_freezing, Decimal.new("0"))
     end
   end

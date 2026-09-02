@@ -14,7 +14,7 @@ defmodule Elex.Functions.ClampTest do
 
     case Parser.parse(expression, ctx) do
       {:ok, ast, _type} ->
-        Evaluator.evaluate(ast, ctx)
+        Evaluator.evaluate!(ast, ctx)
 
       {:error, reason} ->
         flunk("Parsing and evaluation failed unexpectedly: #{reason}")
@@ -60,7 +60,7 @@ defmodule Elex.Functions.ClampTest do
     test "returns evaluation error when min is greater than max" do
       ctx = Elex.new_context()
 
-      assert {:error, "Evaluation error: " <> _} =
+      assert {:error, "clamp min must be less than or equal to max"} =
                Elex.evaluate("clamp(5, 10, 0)", ctx)
     end
 

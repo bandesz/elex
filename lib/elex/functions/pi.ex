@@ -17,7 +17,8 @@ defmodule Elex.Functions.Pi do
   def signature do
     %{
       name: :pi,
-      arity: 0
+      arity: 0,
+      units: :none
     }
   end
 

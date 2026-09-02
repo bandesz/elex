@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in unit catalogs via `Elex.Units.Catalog` and `Elex.Context.put_units/2`
+  (`put_units!/2`). Elex does not ship units; callers register categories,
+  conversions, aliases, and derived formulas
+- Quantity results: `%Elex.Quantity{value, unit: %Elex.Unit{}}`. Validate
+  returns `%Elex.Dimension{}` for unitful types
+- Literal suffixes on numeric literals: registered name or alias (`10mm`),
+  power (`5m^2`), unbraced pipe (`3 m|s`), braced formula (`1 {kg * m | s}`)
+- Scientific notation (`1e3`, `1.5E-2`); `e` and `E` cannot be unit names
+- Conversion: `evaluate(..., unit: …)`, `validate`/`evaluate` `category: …`,
+  and expression `convert/2`, `add_unit/2`, `remove_unit/1`
+- Derived categories (`formula:`, hub `default:`, optional `identity:` that
+  names the base-hub formula; a matching identity unit is still required);
+  `aliases:` on `add_unit`; `Catalog.add_unit/3` omits conversion (`"value"`);
+  `Catalog.kind/2`
+- Non-additive categories (`additive: false`) for temperature-style points
+- Function `units:` policies (`:point | :additive | :none | :convert | :wrap | :unwrap`);
+  optional `call/2` and `evaluate_call/2` on `Elex.Function`
+- Bang helpers: `add_variable!/3`, `add_variables!/2`, `put_units!/2`,
+  `Unit.new!/1`, `Evaluator.evaluate!/2`
+- Ash `:expected_type` may be a catalog category when a catalog is attached
+- Helpers: `Validator.same_numeric_type/2`, `Unit.convertible?/3`,
+  `Unit.compatible?/3`, `Unit.from_monomial/1`
+
+### Changed
+
+- `Elex.extract_variables/2` requires a context so unit suffixes parse when
+  a catalog is attached (was `extract_variables/1`)
+- `Elex.add_variable/3` and `Elex.add_variables/2` always return
+  `{:ok, context} | {:error, reason}` (use the bang variants to pipe)
+- `Elex.Evaluator.evaluate/2` returns `{:ok, result} | {:error, reason}`
+  (use `evaluate!/2` to raise; previously raised `RuntimeError`)
+- `Elex.evaluate/2` no longer prefixes evaluation failures with
+  `Evaluation error:`; callers receive the same reason strings as
+  parse/validate (`division by zero`)
+- Function evaluation errors with a string reason are no longer wrapped in
+  `Error calling function name/arity: …`
+- Without a units catalog, glued suffixes are unexpected tokens
+  (`width + 2mm` → `unexpected 'mm'`), not a missing operand
+
 ## [0.2.3] - 2026-08-15
 
 ### Changed

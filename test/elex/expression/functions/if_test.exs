@@ -6,7 +6,7 @@ defmodule Elex.Functions.IfTest do
   defp eval(expression, ctx \\ Elex.new_context()) do
     case Parser.parse(expression, ctx) do
       {:ok, ast, _} ->
-        {:ok, Evaluator.evaluate(ast, ctx)}
+        {:ok, Evaluator.evaluate!(ast, ctx)}
 
       {:error, reason} ->
         {:error, reason}
@@ -40,24 +40,24 @@ defmodule Elex.Functions.IfTest do
     end
 
     test "validation fails if condition is not boolean" do
-      assert {:error, %{reason: "if condition must be a boolean, got decimal", type: :validation}} =
+      assert {:error, %{reason: "if condition must be a boolean, got number", type: :validation}} =
                validate("if(1, 10, 20)")
 
-      assert {:error, %{reason: "if condition must be a boolean, got string", type: :validation}} =
+      assert {:error, %{reason: "if condition must be a boolean, got text", type: :validation}} =
                validate("if(\"text\", 10, 20)")
     end
 
     test "validation fails if branches have different types" do
       assert {:error,
               %{
-                reason: "if branches must have the same type, got decimal and string",
+                reason: "if branches must have the same type, got number and text",
                 type: :validation
               }} =
                validate("if(true, 10, \"text\")")
 
       assert {:error,
               %{
-                reason: "if branches must have the same type, got boolean and decimal",
+                reason: "if branches must have the same type, got yes/no and number",
                 type: :validation
               }} =
                validate("if(false, true, 10)")
@@ -100,12 +100,12 @@ defmodule Elex.Functions.IfTest do
 
       assert {:error,
               %{
-                reason: "if branches must have the same type, got decimal and string",
+                reason: "if branches must have the same type, got number and text",
                 type: :validation
               }} =
                validate("if(cond, val1, str)", context)
 
-      assert {:error, %{reason: "if condition must be a boolean, got decimal", type: :validation}} =
+      assert {:error, %{reason: "if condition must be a boolean, got number", type: :validation}} =
                validate("if(val1, val1, val2)", context)
     end
 

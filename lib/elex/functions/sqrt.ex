@@ -9,13 +9,15 @@ defmodule Elex.Functions.Sqrt do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels, only: [got: 1]
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :sqrt,
-      arity: 1
+      arity: 1,
+      units: :none
     }
   end
 
@@ -26,7 +28,7 @@ defmodule Elex.Functions.Sqrt do
 
     case Validator.validate(arg_ast, context) do
       {:ok, :decimal} -> {:ok, :decimal}
-      {:ok, other_type} -> {:error, "sqrt function expects a number argument, got #{other_type}"}
+      {:ok, other_type} -> {:error, "sqrt function expects a number argument, #{got(other_type)}"}
       {:error, reason} -> {:error, reason}
     end
   end

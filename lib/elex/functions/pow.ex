@@ -9,13 +9,15 @@ defmodule Elex.Functions.Pow do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels, only: [got: 1]
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :pow,
-      arity: 2
+      arity: 2,
+      units: :none
     }
   end
 
@@ -28,7 +30,7 @@ defmodule Elex.Functions.Pow do
          {:ok, :decimal} <- Validator.validate(arg2_ast, context) do
       {:ok, :decimal}
     else
-      {:ok, other_type} -> {:error, "pow function expects number arguments, got #{other_type}"}
+      {:ok, other_type} -> {:error, "pow function expects number arguments, #{got(other_type)}"}
       {:error, reason} -> {:error, reason}
     end
   end

@@ -24,11 +24,12 @@ defmodule Elex.Parser do
   - `not` (unary)
   - `-` (unary)
 
-  **Functions:** `name(arg1, arg2)` — built-ins include `abs`, `between`, `ceil`,
-  `clamp`, `coalesce`, `concat`, `contains`, `ends_with`, `floor`, `if`,
-  `length`, `lower`, `match`, `max`, `min`, `mod`, `pi`, `pow`, `rem`, `round`,
-  `sqrt`, `starts_with`, `trim`, and `upper`. `min`, `max`, and `coalesce` accept
-  two or more arguments. See modules under `Elex.Functions.*`.
+  **Functions:** `name(arg1, arg2)` — built-ins include `abs`, `add_unit`,
+  `between`, `ceil`, `clamp`, `coalesce`, `concat`, `contains`, `convert`,
+  `ends_with`, `floor`, `if`, `length`, `lower`, `match`, `max`, `min`,
+  `mod`, `pi`, `pow`, `rem`, `remove_unit`, `round`, `sqrt`, `starts_with`,
+  `trim`, and `upper`. `min`, `max`, and `coalesce` accept two or more
+  arguments. See modules under `Elex.Functions.*`.
 
   **Short-circuit:** `and`, `or`, and `if(condition, a, b)` skip evaluating
   operands or branches that cannot affect the result.
@@ -37,7 +38,7 @@ defmodule Elex.Parser do
 
   ## Examples
 
-      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      context = Elex.new_context() |> Elex.add_variable!("x", 10)
       Elex.Parser.parse("x + 5", context)
       #=> {:ok, {:+, [{:var, "x"}, #Decimal<5>]}, :decimal}
 
@@ -47,6 +48,7 @@ defmodule Elex.Parser do
   alias Elex.Context
   alias Elex.Parser.ErrorFormatter
   alias Elex.Parser.StringEscape
+  alias Elex.Units.Catalog
   alias Elex.Validator
 
   # Maximum parenthesis/function-call nesting depth accepted by `parse/3`.
@@ -55,6 +57,7 @@ defmodule Elex.Parser do
   # tiny but deeply nested input from exhausting CPU. Overridable per call via
   # the `:max_depth` option.
   @default_max_depth 16
+  @reserved_words ~w(and or not null true false yes no)
 
   ws = repeat(ascii_char([?\s, ?\t])) |> label("whitespace")
   ws_req = times(ascii_char([?\s, ?\t]), min: 1) |> label("whitespace")
@@ -75,17 +78,245 @@ defmodule Elex.Parser do
     |> replace(nil)
     |> label("null")
 
+  scientific_exponent =
+    ascii_char([?e, ?E])
+    |> optional(ascii_char([?+, ?-]))
+    |> ascii_string([?0..?9], min: 1)
+
   literal_decimal =
     optional(string("-"))
     |> concat(ascii_string([?0..?9], min: 1))
     |> optional(concat(ascii_char([?.]), ascii_string([?0..?9], min: 1)))
+    |> optional(scientific_exponent)
     |> reduce(:to_decimal)
     |> label("number")
 
+  # Optional catalog unit suffix is applied in `maybe_attach_unit_suffix/5`.
+  # Reserved words and, when no catalog is attached, identifier-like tokens are
+  # left in `rest` so `"10 and true"` and `"width + 2mm"` parse the number and
+  # report the leftover token. Unknown suffixes with a catalog return
+  # `{:error}` from post_traverse (which does not backtrack).
+  literal_number =
+    literal_decimal
+    |> post_traverse(:maybe_attach_unit_suffix)
+
   defp to_decimal(acc) do
-    {decimal, ""} = acc |> List.to_string() |> Decimal.parse()
+    {decimal, ""} = acc |> :erlang.iolist_to_binary() |> Decimal.parse()
     decimal
   end
+
+  defp maybe_attach_unit_suffix(rest, [decimal], context, _line, _offset) do
+    case take_braced_suffix(rest) do
+      {:ok, interior, rest_after} ->
+        attach_braced_formula(decimal, context, interior, rest_after, rest)
+
+      :unclosed ->
+        attach_unclosed_brace(rest, decimal, context)
+
+      :none ->
+        maybe_attach_unbraced_suffix(rest, decimal, context)
+    end
+  end
+
+  defp maybe_attach_unbraced_suffix(rest, decimal, context) do
+    case split_unit_suffix(rest) do
+      {symbol, rest_after} ->
+        if symbol in @reserved_words or not catalog?(context) do
+          {rest, [decimal], context}
+        else
+          attach_unbraced_formula(decimal, context, symbol, rest_after)
+        end
+
+      nil ->
+        {rest, [decimal], context}
+    end
+  end
+
+  defp take_braced_suffix(rest) do
+    case skip_parser_ws(rest) do
+      <<?{, after_open::binary>> ->
+        case take_braced_interior(after_open) do
+          {interior, rest_after} -> {:ok, interior, rest_after}
+          nil -> :unclosed
+        end
+
+      _ ->
+        :none
+    end
+  end
+
+  defp attach_braced_formula(decimal, context, interior, rest_after, original_rest) do
+    if catalog?(context) do
+      attach_formula_suffix(decimal, context, interior, rest_after)
+    else
+      {original_rest, [decimal], context}
+    end
+  end
+
+  defp attach_unclosed_brace(rest, decimal, context) do
+    if catalog?(context) do
+      {"", [{:unclosed_brace}], context}
+    else
+      {rest, [decimal], context}
+    end
+  end
+
+  defp attach_formula_suffix(decimal, context, interior, rest_after) do
+    case Catalog.parse_formula(context.units, interior) do
+      {:ok, _monomial} ->
+        {rest_after, [{:unit, decimal, interior}], context}
+
+      {:error, reason} ->
+        {rest_after, [{:formula_error, reason}], context}
+    end
+  end
+
+  defp take_braced_interior(rest) do
+    case :binary.match(rest, "}") do
+      {index, 1} ->
+        interior = binary_part(rest, 0, index)
+        rest_after = binary_part(rest, index + 1, byte_size(rest) - index - 1)
+        {interior, rest_after}
+
+      :nomatch ->
+        nil
+    end
+  end
+
+  defp attach_unbraced_formula(decimal, context, symbol, rest_after) do
+    case take_pipe_atom(rest_after) do
+      {pipe_and_right, rest_pipe} ->
+        case continued_pipe_product(rest_pipe, pipe_and_right, context) do
+          {:error, reason} ->
+            {rest_pipe, [{:formula_error, reason}], context}
+
+          :ok ->
+            attach_formula_suffix(decimal, context, symbol <> pipe_and_right, rest_pipe)
+        end
+
+      nil ->
+        attach_formula_suffix(decimal, context, symbol, rest_after)
+    end
+  end
+
+  defp continued_pipe_product(rest, pipe_and_right, context) do
+    case skip_parser_ws(rest) do
+      <<?*, rest_mul::binary>> ->
+        reject_pipe_product_continuation(rest_mul, pipe_and_right, context)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp reject_pipe_product_continuation(rest_mul, pipe_and_right, context) do
+    case take_unit_atom(skip_parser_ws(rest_mul)) do
+      {atom, _rest} ->
+        pipe_product_continuation_error(atom, pipe_right_atom(pipe_and_right), context)
+
+      nil ->
+        :ok
+    end
+  end
+
+  defp pipe_product_continuation_error(atom, right, context) do
+    if atom == right or registered_unit_atom?(context, atom) do
+      {:error,
+       "unbraced pipe suffixes cannot continue with '* #{atom}'; write a power on the denominator or a braced formula"}
+    else
+      :ok
+    end
+  end
+
+  defp registered_unit_atom?(%{units: %Catalog{} = catalog}, atom) do
+    symbol = atom |> String.split("^", parts: 2) |> hd()
+    match?({:ok, _}, Catalog.canonical_name(catalog, symbol))
+  end
+
+  defp registered_unit_atom?(_context, _atom), do: false
+
+  defp pipe_right_atom(pipe_and_right) do
+    pipe_and_right
+    |> String.trim()
+    |> String.trim_leading("|")
+    |> String.trim()
+  end
+
+  defp catalog?(%{units: %Catalog{}}), do: true
+  defp catalog?(_), do: false
+
+  defp unknown_unit(symbol), do: "unknown unit '#{symbol}'"
+
+  defp split_unit_suffix(rest) do
+    take_unit_atom(skip_parser_ws(rest))
+  end
+
+  defp take_unit_atom(rest) do
+    case take_unit_symbol(rest) do
+      {symbol, rest_after} ->
+        case take_power_exponent(rest_after) do
+          {exponent, rest_after_power} ->
+            {symbol <> "^" <> exponent, rest_after_power}
+
+          nil ->
+            {symbol, rest_after}
+        end
+
+      nil ->
+        nil
+    end
+  end
+
+  # Optional `|` with spaces around it, then a second atom (`s`, `s^2`).
+  defp take_pipe_atom(rest) do
+    after_ws = skip_parser_ws(rest)
+
+    case after_ws do
+      <<?|, after_bar::binary>> ->
+        case take_unit_atom(skip_parser_ws(after_bar)) do
+          {_right, rest_after} ->
+            consumed = byte_size(rest) - byte_size(rest_after)
+            {binary_part(rest, 0, consumed), rest_after}
+
+          nil ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp skip_parser_ws(<<c, rest::binary>>) when c in [?\s, ?\t], do: skip_parser_ws(rest)
+  defp skip_parser_ws(rest), do: rest
+
+  # Unit symbols allow A-Z (N, F, m2). Variable identifiers stay a-z only.
+  defp take_unit_symbol(<<c, rest::binary>>) when c in ?A..?Z or c in ?a..?z do
+    take_unit_symbol(rest, <<c>>)
+  end
+
+  defp take_unit_symbol(_rest), do: nil
+
+  defp take_unit_symbol(<<c, rest::binary>>, acc)
+       when c in ?A..?Z or c in ?a..?z or c in ?0..?9 or c == ?_ do
+    take_unit_symbol(rest, <<acc::binary, c>>)
+  end
+
+  defp take_unit_symbol(rest, acc), do: {acc, rest}
+
+  # Power suffix: `^` with no surrounding spaces, then an integer (including 0
+  # so `m^0` is an invalid formula rather than unexpected '^').
+  defp take_power_exponent(<<?^, digit, rest::binary>>) when digit in ?0..?9 do
+    take_digits(rest, <<digit>>)
+  end
+
+  defp take_power_exponent(_rest), do: nil
+
+  defp take_digits(<<c, rest::binary>>, acc) when c in ?0..?9 do
+    take_digits(rest, <<acc::binary, c>>)
+  end
+
+  defp take_digits(rest, acc), do: {acc, rest}
 
   defp codepoint_to_string(codepoint) do
     <<codepoint::utf8>>
@@ -174,7 +405,7 @@ defmodule Elex.Parser do
       |> concat(parsec(:expr_or))
       |> ignore(ws)
       |> ignore(ascii_char([?)])),
-      literal_decimal,
+      literal_number,
       literal_boolean,
       literal_null,
       literal_string,
@@ -419,7 +650,7 @@ defmodule Elex.Parser do
 
   ## Examples
 
-      context = Elex.new_context() |> Elex.add_variable("x", 10)
+      context = Elex.new_context() |> Elex.add_variable!("x", 10)
       Elex.Parser.parse("x + 5", context)
       #=> {:ok, {:+, [{:var, "x"}, #Decimal<5>]}, :decimal}
 
@@ -427,7 +658,8 @@ defmodule Elex.Parser do
       #=> {:error, "variable 'unknown_var' does not exist"}
 
   """
-  @spec parse(String.t(), Context.t(), keyword()) :: {:ok, term(), atom()} | {:error, String.t()}
+  @spec parse(String.t(), Context.t(), keyword()) ::
+          {:ok, term(), atom() | Elex.Dimension.t()} | {:error, String.t()}
   def parse(expression, context, opts \\ []) do
     validate? = Keyword.get(opts, :validate, true)
     max_depth = Keyword.get(opts, :max_depth, @default_max_depth)
@@ -455,17 +687,49 @@ defmodule Elex.Parser do
     do: "expression is nested too deeply (maximum depth is #{max_depth})"
 
   defp parse_and_validate(expression, context, validate?) do
-    case do_parse(expression) do
+    case do_parse(expression, context: %{units: context.units}) do
       {:ok, [ast], "", _, _, _} ->
-        validate_or_return_ast(ast, context, validate?)
+        case ast_parse_issue(ast) do
+          {:error, reason} -> {:error, reason}
+          :ok -> validate_or_return_ast(ast, context, validate?)
+        end
 
       {:ok, [_ast], rest, _, _, byte_offset} ->
         {:error, humanize_error(expression, rest, byte_offset)}
 
-      {:error, _reason, rest, _, _, byte_offset} ->
-        {:error, humanize_error(expression, rest, byte_offset)}
+      {:error, reason, rest, _, _, byte_offset} ->
+        {:error, format_parse_error(reason, expression, rest, byte_offset)}
     end
   end
+
+  defp ast_parse_issue({:unknown_unit, _decimal, symbol}), do: {:error, unknown_unit(symbol)}
+
+  defp ast_parse_issue({:invalid_formula, interior}),
+    do: {:error, "invalid formula '#{interior}'"}
+
+  defp ast_parse_issue({:formula_error, reason}), do: {:error, reason}
+
+  defp ast_parse_issue({:unclosed_brace}), do: {:error, "unclosed '{'"}
+
+  defp ast_parse_issue({:func, _name, _arity, args}) do
+    Enum.reduce_while(args, :ok, fn arg, :ok ->
+      case ast_parse_issue(arg) do
+        :ok -> {:cont, :ok}
+        err -> {:halt, err}
+      end
+    end)
+  end
+
+  defp ast_parse_issue({_op, [left, right]}) do
+    case ast_parse_issue(left) do
+      :ok -> ast_parse_issue(right)
+      err -> err
+    end
+  end
+
+  defp ast_parse_issue({:not, ast}), do: ast_parse_issue(ast)
+  defp ast_parse_issue({:-, ast}) when not is_list(ast), do: ast_parse_issue(ast)
+  defp ast_parse_issue(_ast), do: :ok
 
   defp validate_or_return_ast(ast, context, true) do
     case Validator.validate(ast, context) do
@@ -475,6 +739,13 @@ defmodule Elex.Parser do
   end
 
   defp validate_or_return_ast(ast, _context, false), do: {:ok, ast, nil}
+
+  defp format_parse_error("unknown unit " <> _suffix = message, _expression, _rest, _byte_offset),
+    do: message
+
+  defp format_parse_error(_reason, expression, rest, byte_offset) do
+    humanize_error(expression, rest, byte_offset)
+  end
 
   # Cheap O(n) scan of the maximum parenthesis nesting depth, returning `true`
   # as soon as `limit` is exceeded so it never walks the whole input needlessly.

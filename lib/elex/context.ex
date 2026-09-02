@@ -11,6 +11,8 @@ defmodule Elex.Context do
   - `:variables` - Map of variable name strings to [`Elex.Variable`](Elex.Variable) structs
   - `:functions` - Map of `{name, arity}` or `{name, :variadic}` tuples to modules
     implementing [`Elex.Function`](Elex.Function)
+  - `:units` - Optional [`Elex.Units.Catalog`](Elex.Units.Catalog); `nil` (default)
+    keeps unit-unaware parse, validate, and evaluate behaviour
 
   ## Examples
 
@@ -20,13 +22,15 @@ defmodule Elex.Context do
         |> Elex.Context.add_variable("x", %Elex.Variable{value: Decimal.new(10), type: :decimal})
 
   """
+  alias Elex.Units.Catalog
   alias Elex.Variable
 
-  defstruct variables: %{}, functions: %{}
+  defstruct variables: %{}, functions: %{}, units: nil
 
   @type t :: %__MODULE__{
           variables: %{optional(String.t()) => Variable.t()},
-          functions: %{optional({String.t(), non_neg_integer() | :variadic}) => module()}
+          functions: %{optional({String.t(), non_neg_integer() | :variadic}) => module()},
+          units: nil | Catalog.t()
         }
 
   @type function_info :: %{
@@ -94,6 +98,46 @@ defmodule Elex.Context do
   @spec add_variable(t(), String.t(), Variable.t()) :: t()
   def add_variable(%__MODULE__{} = ctx, name, var) do
     Map.put(ctx, :variables, Map.put(ctx.variables, name, var))
+  end
+
+  @doc """
+  Attaches a units catalog to the context.
+
+  ## Parameters
+
+  - `ctx` - The context to update
+  - `catalog` - An [`Elex.Units.Catalog`](Elex.Units.Catalog) built by the caller
+
+  ## Returns
+
+  `{:ok, context}` with `units` set to the given catalog, or
+  `{:error, String.t()}` when a category `default:` hub is not among
+  that category's units, or a derived category has only aliases
+  (`m2`, `ha`) and no unit matching the base-hub product (`m * m`).
+
+  ## Examples
+
+      catalog = Elex.Units.Catalog.new()
+      {:ok, context} = Elex.Context.put_units(Elex.new_context(), catalog)
+
+  """
+  @spec put_units(t(), Catalog.t()) :: {:ok, t()} | {:error, String.t()}
+  def put_units(%__MODULE__{} = ctx, %Catalog{} = catalog) do
+    case Catalog.validate(catalog) do
+      :ok -> {:ok, %{ctx | units: catalog}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Same as `put_units/2`, but returns the context or raises `ArgumentError`.
+  """
+  @spec put_units!(t(), Catalog.t()) :: t()
+  def put_units!(%__MODULE__{} = ctx, %Catalog{} = catalog) do
+    case put_units(ctx, catalog) do
+      {:ok, ctx} -> ctx
+      {:error, reason} -> raise ArgumentError, reason
+    end
   end
 
   @doc """

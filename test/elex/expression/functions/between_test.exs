@@ -14,7 +14,7 @@ defmodule Elex.Functions.BetweenTest do
 
     case Parser.parse(expression, ctx) do
       {:ok, ast, _type} ->
-        Evaluator.evaluate(ast, ctx)
+        Evaluator.evaluate!(ast, ctx)
 
       {:error, reason} ->
         flunk("Parsing and evaluation failed unexpectedly: #{reason}")
@@ -68,7 +68,7 @@ defmodule Elex.Functions.BetweenTest do
     test "returns evaluation error when low is greater than high" do
       ctx = Elex.new_context()
 
-      assert {:error, "Evaluation error: " <> _} =
+      assert {:error, _} =
                Elex.evaluate("between(5, 10, 0)", ctx)
     end
 

@@ -9,13 +9,15 @@ defmodule Elex.Functions.Length do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :length,
-      arity: 1
+      arity: 1,
+      units: :none
     }
   end
 
@@ -29,7 +31,7 @@ defmodule Elex.Functions.Length do
         {:ok, :decimal}
 
       {:ok, other_type} ->
-        {:error, "length function expects a string argument, got #{other_type}"}
+        {:error, "length function expects a string argument, #{got(other_type)}"}
 
       {:error, reason} ->
         {:error, reason}

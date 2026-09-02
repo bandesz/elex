@@ -2,12 +2,14 @@ defmodule Elex.ContextTest do
   use ExUnit.Case, async: true
 
   alias Elex.{Context, Variable}
+  alias Elex.Units.Catalog
 
   describe "struct initialization" do
     test "creates empty context with default values" do
       ctx = %Context{}
       assert ctx.variables == %{}
       assert ctx.functions == %{}
+      assert ctx.units == nil
     end
 
     test "creates context with initial variables" do
@@ -24,6 +26,51 @@ defmodule Elex.ContextTest do
       funcs = %{{"func", 1} => SomeModule}
       ctx = %Context{functions: funcs}
       assert ctx.functions == funcs
+    end
+  end
+
+  describe "put_units/2" do
+    test "puts a catalog on the context" do
+      catalog = Catalog.new()
+      assert {:ok, ctx} = Context.put_units(%Context{}, catalog)
+
+      assert ctx.units == catalog
+    end
+
+    test "preserves variables and functions when putting a catalog" do
+      vars = %{"x" => %Variable{value: 10, type: :decimal}}
+      ctx = Context.add_function(%Context{variables: vars}, Elex.Functions.Max)
+      catalog = Catalog.new()
+
+      assert {:ok, ctx} = Context.put_units(ctx, catalog)
+
+      assert ctx.units == catalog
+      assert ctx.variables == vars
+      assert Map.has_key?(ctx.functions, {"max", :variadic})
+    end
+  end
+
+  describe "put_units!/2" do
+    test "returns the context when the catalog is valid" do
+      catalog = Catalog.new()
+      ctx = Context.put_units!(%Context{}, catalog)
+
+      assert ctx.units == catalog
+    end
+
+    test "raises ArgumentError when a default hub is not among the category units" do
+      {:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
+
+      assert_raise ArgumentError, "default 'm' is not among the units of :length", fn ->
+        Context.put_units!(%Context{}, catalog)
+      end
+    end
+  end
+
+  describe "new_context/0" do
+    test "has units nil by default" do
+      ctx = Elex.new_context()
+      assert ctx.units == nil
     end
   end
 

@@ -11,11 +11,13 @@ Add both Elex and Ash to your dependencies:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.2.0"},
+    {:elex, "~> 0.2.3"},
     {:ash, "~> 3.22"}
   ]
 end
 ```
+
+Unit support is **Unreleased**; Hex `0.2.3` does not include it.
 
 `Elex.AshValidation` is compiled only when Ash is available. Without Ash in
 your dependency tree, the module is not present.
@@ -52,7 +54,7 @@ human-readable message from Elex.
 |--------|----------|-------------|
 | `:attribute` | yes | Atom name of the string attribute holding the expression |
 | `:context` | yes | `Elex.Context` with allowed variables and functions |
-| `:expected_type` | yes | `:decimal`, `:boolean`, or `:string` |
+| `:expected_type` | yes | `:decimal`, `:boolean`, `:string`, or a catalog category atom (`:length`) when the context has a units catalog. Category atoms are passed as `category:` to `Elex.validate/3` — not compared to a returned `:length` atom. Validate returns `%Elex.Dimension{}` for unitful results (`length`, `length \| time`). |
 | `:add_value_type_from_attribute` | no | Attribute atom; adds a `"value"` variable typed from that attribute's current value |
 | `:description` | no | Custom text included in validation error messages |
 
@@ -63,7 +65,7 @@ Pass a context that includes every variable your users may reference:
 ```elixir
 context =
   Elex.new_context()
-  |> Elex.add_variables(%{
+  |> Elex.add_variables!(%{
     "price" => 0,
     "quantity" => 0
   })
@@ -102,14 +104,35 @@ end
 This lets users write expressions like `value > 100` where `value` is typed as
 `:decimal` from the `:threshold` attribute.
 
+## Units: `expected_type` as a category
+
+When the context has a units catalog, `:expected_type` may be a category atom.
+That becomes `Elex.validate(..., category: :length)` — not a comparison of
+validate's return value to `:length`. Dimensionless `:decimal`, `:boolean`,
+and `:string` are unchanged.
+
+```elixir
+validations do
+  validate Elex.AshValidation,
+    attribute: :distance_formula,
+    context: length_context,
+    expected_type: :length
+end
+```
+
+`"1mm + 2m"` succeeds. `"1 + 2"` fails with `length was expected, got number`. A
+speed-compatible quotient such as `"1cm / 1s"` succeeds only when
+`expected_type` is `:speed` (or another category whose formula is
+`length | time`).
+
 ## What gets validated
 
 On change, `Elex.AshValidation`:
 
 1. Reads the new value of the target attribute (skips validation when unchanged)
-2. Parses the expression string with `Elex.Parser.parse/3`
-3. Checks the result type matches `:expected_type`
-4. Returns `:ok` or an `Ash.Error.Changes.InvalidAttribute` error
+2. Calls `Elex.validate/3`. Catalog category `:expected_type` values are passed
+   as `category:`; primitive types are checked against the returned atom
+3. Returns `:ok` or an `Ash.Error.Changes.InvalidAttribute` error
 
 Parse and type errors surface as attribute errors with the expression string as
 the invalid value.

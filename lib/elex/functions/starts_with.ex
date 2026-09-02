@@ -9,13 +9,15 @@ defmodule Elex.Functions.StartsWith do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :starts_with,
-      arity: 2
+      arity: 2,
+      units: :none
     }
   end
 
@@ -29,7 +31,7 @@ defmodule Elex.Functions.StartsWith do
       {:ok, :boolean}
     else
       {:ok, other_type} ->
-        {:error, "starts_with function expects string arguments, got #{other_type}"}
+        {:error, "starts_with function expects string arguments, #{got(other_type)}"}
 
       {:error, reason} ->
         {:error, reason}

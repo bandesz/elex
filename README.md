@@ -11,20 +11,22 @@ Full guides are available on [hexdocs.pm](https://hexdocs.pm/elex):
 - [Getting Started](https://hexdocs.pm/elex/getting-started.html)
 - [Expression Language](https://hexdocs.pm/elex/expression-language.html)
 - [Functions](https://hexdocs.pm/elex/functions.html)
+- [Units](https://hexdocs.pm/elex/units.html)
 - [Ash Integration](https://hexdocs.pm/elex/ash-integration.html)
 - [Advanced Topics](https://hexdocs.pm/elex/advanced.html)
 
 ## Features
 
-- **Arithmetic Operations**: `+`, `-`, `*`, `/`, `%` (modulo), unary `-`
-- **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=` (numbers and strings)
+- **Arithmetic Operations**: `+`, `-`, `*`, `/`, `%` (remainder), unary `-`
+- **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=` (numbers, strings, and same-dimension quantities)
 - **Logical Operations**: `and`, `or`, `not` (with short-circuit evaluation)
-- **Literals**: Decimal numbers, booleans (`true`/`false`, `yes`/`no`), strings, and `null`
+- **Literals**: Decimal numbers (including scientific notation), booleans (`true`/`false`, `yes`/`no`), strings, and `null`
 - **Variables**: Dynamic variable substitution
 - **Functions**: Built-in math, string, and utility functions (see [Functions](#functions)) and custom functions via `Elex.Function`
 - **Type System**: Static type checking and validation
 - **Decimal Precision**: Uses `Decimal` for accurate arithmetic
 - **Expression Inversion**: Solve for variables in simple expressions
+- **Units**: Optional caller-registered catalogs (quantities, conversion, dimensional validate)
 - **Ash Integration**: Optional Ash validation for resource attributes
 
 ## Installation
@@ -34,18 +36,21 @@ Add `elex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.2.0"}
+    {:elex, "~> 0.2.3"}
   ]
 end
 ```
+
+Unit support (`%Elex.Quantity{}`, catalogs, `convert/2`) is **Unreleased**.
+Hex `0.2.3` does not include it; use this repository until the next release.
 
 ## Quick Start
 
 ```elixir
 # Create a context with variables
 context = Elex.new_context()
-  |> Elex.add_variable("price", 100)
-  |> Elex.add_variable("tax_rate", 0.08)
+  |> Elex.add_variable!("price", 100)
+  |> Elex.add_variable!("tax_rate", 0.08)
 
 # Evaluate an expression
 {:ok, result} = Elex.evaluate("price * (1 + tax_rate)", context)
@@ -56,7 +61,7 @@ context = Elex.new_context()
 {:ok, :boolean} = Elex.validate("price > 50", context)
 
 # Extract variables from an expression
-{:ok, ["price", "quantity"]} = Elex.extract_variables("price * quantity")
+{:ok, ["price", "quantity"]} = Elex.extract_variables("price * quantity", context)
 ```
 
 ## Expression Syntax
@@ -64,10 +69,12 @@ context = Elex.new_context()
 ### Literals
 
 ```elixir
-# Numbers (decimal)
+# Numbers (decimal, including scientific notation)
 Elex.evaluate("42", Elex.new_context())
 Elex.evaluate("3.14", Elex.new_context())
 Elex.evaluate("-5.5", Elex.new_context())
+Elex.evaluate("1e3", Elex.new_context())
+Elex.evaluate("1.5E-2", Elex.new_context())
 
 # Booleans
 Elex.evaluate("true", Elex.new_context())
@@ -91,8 +98,8 @@ Variable names must start with a lowercase letter and may contain letters, digit
 ```elixir
 context =
   Elex.new_context()
-  |> Elex.add_variable("price", 100)
-  |> Elex.add_variable("tax_rate", 0.08)
+  |> Elex.add_variable!("price", 100)
+  |> Elex.add_variable!("tax_rate", 0.08)
 
 {:ok, result} = Elex.evaluate("price * (1 + tax_rate)", context)
 # result => #Decimal<108>
@@ -130,7 +137,8 @@ context = Elex.new_context()
 {:ok, true} = Elex.evaluate(~s["b" >= "a"], Elex.new_context())
 ```
 
-Comparison operands must have the same type (decimal, boolean, string, or null).
+Comparison operands must have the same type (decimal, boolean, string, null,
+or same-dimension quantities when a catalog is attached).
 
 ### Logical Operations
 
@@ -160,11 +168,14 @@ Comparison operands must have the same type (decimal, boolean, string, or null).
 | `pow(base, exp)` | Exponentiation |
 | `rem(a, b)` | Remainder (sign follows the dividend; same as `%`) |
 | `mod(a, b)` | Floored modulo (sign follows the divisor) |
-| `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers (variadic) |
+| `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers or same-category quantities (variadic) |
 | `clamp(x, min, max)` | Clamp `x` to an inclusive range |
 | `between(x, low, high)` | `true` when `x` is in the inclusive range |
 | `pi()` | Mathematical constant π |
 | `if(cond, a, b)` | Conditional (short-circuits; branches must share a type) |
+| `convert(value, unit)` | Convert a quantity into a named unit or formula (needs a catalog) |
+| `add_unit(value, unit)` | Wrap a number as a quantity of a registered symbol (needs a catalog) |
+| `remove_unit(value)` | Magnitude of a quantity as a number (needs a catalog) |
 
 ```elixir
 context = Elex.new_context()
@@ -185,6 +196,8 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate("pi()", context)                  # => #Decimal<3.14159…>
 {:ok, result} = Elex.evaluate("if(10 > 5, 1, 0)", context)    # => #Decimal<1>
 ```
+
+See [Units](#units) for `convert`, `add_unit`, and `remove_unit`.
 
 #### Strings
 
@@ -213,6 +226,47 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate("coalesce(null, 5)", context)                  # => #Decimal<5>
 ```
 
+## Units
+
+Elex does not ship a catalog. Register categories and attach one with
+`Elex.Context.put_units/2` (or `put_units!/2` when piping):
+
+```elixir
+alias Elex.Units.Catalog
+
+{:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
+{:ok, catalog} = Catalog.add_unit(catalog, :length, "m")
+{:ok, catalog} = Catalog.add_unit(catalog, :length, "mm", "value / 1000")
+
+{:ok, context} = Elex.Context.put_units(Elex.new_context(), catalog)
+
+{:ok, qty} = Elex.evaluate("10mm", context)
+# qty => #Elex.Quantity<10 mm>
+
+{:ok, %Elex.Dimension{monomial: %{length: 1}}} = Elex.validate("10mm", context)
+
+{:ok, qty} = Elex.evaluate("10mm", context, unit: "m")
+# qty => #Elex.Quantity<0.01 m>
+
+{:ok, qty} = Elex.evaluate(~s[convert(10mm, "m")], context)
+# qty => #Elex.Quantity<0.01 m>
+```
+
+Suffixes attach to numeric literals: a registered name (`10mm`), a power
+(`5 m^2`), an unbraced pipe (`3 m|s`), or a braced formula (`1 {kg * m | s}`).
+Variables take `{n, "unit"}` or `%Elex.Quantity{}` with `category:`:
+
+```elixir
+{:ok, context} = Elex.add_variable(context, "width", {10, "mm"}, category: :length)
+```
+
+Formula strings use `|` for division (`"km | h"`), not `/`. Without a catalog,
+glued suffixes are unexpected tokens (`2mm` → `unexpected 'mm'`).
+
+See the [Units](https://hexdocs.pm/elex/units.html) guide for derived
+categories, aliases, `identity:`, non-additive temperature, and custom-function
+`units:`.
+
 ## Ash Integration
 
 Elex provides an optional Ash validation for validating expressions in resource attributes:
@@ -236,7 +290,7 @@ defmodule MyApp.Resource do
 end
 ```
 
-The `expected_type` option accepts `:decimal`, `:boolean`, or `:string`. Use `add_value_type_from_attribute` to inject a `value` variable typed from another attribute — useful when validating formulas that reference the current value.
+The `expected_type` option accepts `:decimal`, `:boolean`, or `:string`. When the context has a units catalog, it may also be a category atom such as `:length`. Use `add_value_type_from_attribute` to inject a `value` variable typed from another attribute — useful when validating formulas that reference the current value.
 
 ## Expression Inversion
 
@@ -268,6 +322,11 @@ defmodule MyApp.Functions.Double do
   def validate([arg], ctx), do: Elex.Validator.validate(arg, ctx)
 
   @impl true
+  def call([%Elex.Quantity{value: value, unit: unit}]) do
+    {:ok, doubled} = call([value])
+    {:ok, %Elex.Quantity{value: doubled, unit: unit}}
+  end
+
   def call([arg]), do: {:ok, Decimal.mult(arg, Decimal.new(2))}
 
   @impl true

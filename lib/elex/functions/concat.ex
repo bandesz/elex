@@ -13,6 +13,7 @@ defmodule Elex.Functions.Concat do
 
   alias Elex.Function
   alias Elex.Validator
+  import Elex.Labels
 
   @impl Function
   @doc false
@@ -20,7 +21,8 @@ defmodule Elex.Functions.Concat do
     %{
       name: :concat,
       variadic: true,
-      min_arity: 0
+      min_arity: 0,
+      units: :none
     }
   end
 
@@ -40,7 +42,7 @@ defmodule Elex.Functions.Concat do
           {:cont, :ok}
 
         {:ok, other_type} ->
-          {:halt, {:error, "concat function expects string arguments, got #{other_type}"}}
+          {:halt, {:error, "concat function expects string arguments, #{got(other_type)}"}}
 
         {:error, reason} ->
           {:halt, {:error, reason}}

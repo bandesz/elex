@@ -9,13 +9,15 @@ defmodule Elex.Functions.Contains do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :contains,
-      arity: 2
+      arity: 2,
+      units: :none
     }
   end
 
@@ -29,7 +31,7 @@ defmodule Elex.Functions.Contains do
       {:ok, :boolean}
     else
       {:ok, other_type} ->
-        {:error, "contains function expects string arguments, got #{other_type}"}
+        {:error, "contains function expects string arguments, #{got(other_type)}"}
 
       {:error, reason} ->
         {:error, reason}

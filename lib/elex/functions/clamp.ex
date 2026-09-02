@@ -15,27 +15,37 @@ defmodule Elex.Functions.Clamp do
   def signature do
     %{
       name: :clamp,
-      arity: 3
+      arity: 3,
+      units: :point
     }
   end
 
   @impl Function
   @doc false
-  def validate([arg1_ast, arg2_ast, arg3_ast], context) do
+  def validate(args_ast, context) do
     alias Elex.Validator
 
-    with {:ok, :decimal} <- Validator.validate(arg1_ast, context),
-         {:ok, :decimal} <- Validator.validate(arg2_ast, context),
-         {:ok, :decimal} <- Validator.validate(arg3_ast, context) do
-      {:ok, :decimal}
-    else
-      {:ok, other_type} -> {:error, "clamp function expects number arguments, got #{other_type}"}
-      {:error, reason} -> {:error, reason}
+    case Validator.same_numeric_type(args_ast, context) do
+      {:ok, type} ->
+        {:ok, type}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      mismatch ->
+        {:error, Validator.numeric_mismatch_message("clamp", mismatch)}
     end
   end
 
   @impl Function
   @doc false
+  def call([%Elex.Quantity{unit: unit} | _] = args) do
+    case call(Enum.map(args, & &1.value)) do
+      {:ok, result} -> {:ok, %Elex.Quantity{value: result, unit: unit}}
+      {:error, _} = err -> err
+    end
+  end
+
   def call([%Decimal{} = value, %Decimal{} = min, %Decimal{} = max]) do
     if Decimal.compare(min, max) == :gt do
       {:error, "clamp min must be less than or equal to max"}

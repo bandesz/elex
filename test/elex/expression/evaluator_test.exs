@@ -7,7 +7,7 @@ defmodule Elex.EvaluatorTest do
   defp parse_and_evaluate(expression, ctx \\ Elex.new_context()) do
     case Parser.parse(expression, ctx) do
       {:ok, ast, _type} ->
-        Evaluator.evaluate(ast, ctx)
+        Evaluator.evaluate!(ast, ctx)
 
       {:error, reason} ->
         flunk("Parsing and evaluation failed unexpectedly: #{reason}")
@@ -18,6 +18,40 @@ defmodule Elex.EvaluatorTest do
     assert {:error, _reason} = Parser.parse(expression, ctx)
   end
 
+  describe "evaluate/2 and evaluate!/2" do
+    test "evaluate/2 returns {:ok, result} for a valid AST" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("1 + 2", ctx)
+
+      assert {:ok, result} = Evaluator.evaluate(ast, ctx)
+      assert result == Decimal.new(3)
+    end
+
+    test "evaluate/2 returns {:error, reason} instead of raising" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("1 / 0", ctx)
+
+      assert {:error, reason} = Evaluator.evaluate(ast, ctx)
+      assert reason =~ "division by zero"
+    end
+
+    test "evaluate!/2 returns the result for a valid AST" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("1 + 2", ctx)
+
+      assert Evaluator.evaluate!(ast, ctx) == Decimal.new(3)
+    end
+
+    test "evaluate!/2 raises on evaluation failure" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("1 / 0", ctx)
+
+      assert_raise Decimal.Error, fn ->
+        Evaluator.evaluate!(ast, ctx)
+      end
+    end
+  end
+
   describe "evaluate/2 with parser" do
     test "evaluates integer decimal literals" do
       assert parse_and_evaluate("-12") == Decimal.new("-12")
@@ -25,6 +59,12 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate("0") == Decimal.new("0")
       assert parse_and_evaluate("1") == Decimal.new("1")
       assert parse_and_evaluate("12") == Decimal.new("12")
+    end
+
+    test "evaluates scientific notation" do
+      assert parse_and_evaluate("1e3") == Decimal.new("1e3")
+      assert parse_and_evaluate("1.5E-2") == Decimal.new("1.5E-2")
+      assert parse_and_evaluate("2e+3") == Decimal.new("2e+3")
     end
 
     test "evaluates decimal literals" do
@@ -61,7 +101,7 @@ defmodule Elex.EvaluatorTest do
     end
 
     test "evaluates null equality with nil variables" do
-      ctx = Elex.new_context() |> Elex.add_variable("x", nil)
+      ctx = Elex.new_context() |> Elex.add_variable!("x", nil)
 
       assert parse_and_evaluate("x == null", ctx) == true
       assert parse_and_evaluate("null == x", ctx) == true
@@ -674,11 +714,9 @@ defmodule Elex.EvaluatorTest do
     test "returns error during evaluation if function returns error" do
       ctx = test_func_context()
 
-      assert_raise RuntimeError,
-                   ~r/Error calling function test_func\/1: "Simulated function error"/,
-                   fn ->
-                     parse_and_evaluate("test_func(666)", ctx)
-                   end
+      assert_raise RuntimeError, "Simulated function error", fn ->
+        parse_and_evaluate("test_func(666)", ctx)
+      end
     end
 
     test "function name is case sensitive and requires correct format" do

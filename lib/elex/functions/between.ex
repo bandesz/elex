@@ -9,36 +9,39 @@ defmodule Elex.Functions.Between do
   @behaviour Elex.Function
 
   alias Elex.Function
+  alias Elex.Validator
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :between,
-      arity: 3
+      arity: 3,
+      units: :point
     }
   end
 
   @impl Function
   @doc false
-  def validate([arg1_ast, arg2_ast, arg3_ast], context) do
-    alias Elex.Validator
-
-    with {:ok, :decimal} <- Validator.validate(arg1_ast, context),
-         {:ok, :decimal} <- Validator.validate(arg2_ast, context),
-         {:ok, :decimal} <- Validator.validate(arg3_ast, context) do
-      {:ok, :boolean}
-    else
-      {:ok, other_type} ->
-        {:error, "between function expects number arguments, got #{other_type}"}
+  def validate(args_ast, context) do
+    case Validator.same_numeric_type(args_ast, context) do
+      {:ok, _type} ->
+        {:ok, :boolean}
 
       {:error, reason} ->
         {:error, reason}
+
+      mismatch ->
+        {:error, Validator.numeric_mismatch_message("between", mismatch)}
     end
   end
 
   @impl Function
   @doc false
+  def call([%Elex.Quantity{} | _] = args) do
+    call(Enum.map(args, & &1.value))
+  end
+
   def call([%Decimal{} = value, %Decimal{} = low, %Decimal{} = high]) do
     if Decimal.compare(low, high) == :gt do
       {:error, "between low must be less than or equal to high"}
