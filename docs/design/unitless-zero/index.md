@@ -4,6 +4,9 @@ Allow a **literal** `0` with no unit when comparing or combining with an **addit
 
 Follow-on to [units](../units/index.md). User flows below are canonical.
 
+## Implementation status
+**Status:** in progress
+
 ## Problem and constraints
 
 `validate("10cm > 0", ctx)` is `cannot compare length and number`. Callers write `width > 0`, `if(width > 0, width, 0)`, `clamp(width, 0, 10cm)`. For additive quantities, `0` is the unique zero of that dimension (`0 cm` = `0 m`). Elex already type-checks statically, so only **literal** zeros can be special-cased without weakening `10cm > 1`.
@@ -151,10 +154,11 @@ Library-only ExUnit and unit TDD (`test-driven-development`). No UI flow tests. 
 Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functions.md` (`clamp` / `between` / `if`). `CHANGELOG.md` Unreleased. `lib/elex/function.ex` `:point` / `same_numeric_type` note.
 
 ## Batch 1: Unitless zero
-
+**Status:** in progress
 **Scope:** validate + evaluate + guides. Excludes: `+` / `-` identity, non-additive 0, runtime zeros.
 
 ### Task 1.1: Comparison operators
+**Status:** in progress
 
 - Files: Modify `lib/elex/validator.ex`, `lib/elex/evaluator.ex`; Test `test/elex/units/functions_test.exs`, `test/elex/units/arithmetic_test.exs`, `test/elex/units/temperature_test.exs`
 - TDD: yes
@@ -168,6 +172,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `min` / `if` / `+`
 
 ### Task 1.2: `min` / `max` / `clamp` / `between`
+**Status:** pending
 
 - Files: Modify `lib/elex/validator.ex` (`same_numeric_type/2`), `lib/elex/evaluator.ex` (`align_to_unit/3`); Test `test/elex/units/functions_test.exs`, `test/elex/units/temperature_test.exs`
 - TDD: yes
@@ -181,6 +186,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `if` / `coalesce`; comparison ops (Task 1.1)
 
 ### Task 1.3: `if` / `coalesce`
+**Status:** pending
 
 - Files: Modify `lib/elex/functions/if.ex`, `lib/elex/functions/coalesce.ex` (and validator unify helper if shared); Test `test/elex/units/functions_test.exs`, `test/elex/units/temperature_test.exs`
 - TDD: yes
@@ -194,6 +200,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `min` / `clamp`; `+` / `-`
 
 ### Task 1.4: Guides and changelog
+**Status:** pending
 
 - Files: Modify `guides/units.md`, `guides/functions.md`, `CHANGELOG.md`, `lib/elex/function.ex`
 - TDD: no
