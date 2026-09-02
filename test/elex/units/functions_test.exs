@@ -411,6 +411,63 @@ defmodule Elex.Units.FunctionsTest do
     end
   end
 
+  describe "comparisons with literal zero" do
+    test "validates comparing a quantity to literal 0 as boolean", %{ctx: ctx} do
+      assert Elex.validate("10cm > 0", ctx) == {:ok, :boolean}
+    end
+
+    test "evaluates 10cm greater than 0 as true", %{ctx: ctx} do
+      assert Elex.evaluate("10cm > 0", ctx) == {:ok, true}
+    end
+
+    test "evaluates 10cm equal to 0 as false", %{ctx: ctx} do
+      assert Elex.evaluate("10cm == 0", ctx) == {:ok, false}
+    end
+
+    test "evaluates 10cm less than 0 as false", %{ctx: ctx} do
+      assert Elex.evaluate("10cm < 0", ctx) == {:ok, false}
+    end
+
+    test "evaluates 0 less than 10cm as true", %{ctx: ctx} do
+      assert Elex.evaluate("0 < 10cm", ctx) == {:ok, true}
+    end
+
+    test "evaluates 0cm equal to 0 as true", %{ctx: ctx} do
+      assert Elex.evaluate("0cm == 0", ctx) == {:ok, true}
+    end
+
+    test "treats 0.0 as literal 0", %{ctx: ctx} do
+      assert Elex.evaluate("10cm > 0.0", ctx) == {:ok, true}
+    end
+
+    test "treats -0 as literal 0", %{ctx: ctx} do
+      assert Elex.evaluate("10cm > -0", ctx) == {:ok, true}
+    end
+
+    test "evaluates <= >= and != against literal 0", %{ctx: ctx} do
+      assert Elex.evaluate("10cm >= 0", ctx) == {:ok, true}
+      assert Elex.evaluate("10cm <= 0", ctx) == {:ok, false}
+      assert Elex.evaluate("10cm != 0", ctx) == {:ok, true}
+    end
+
+    test "rejects comparing a quantity to a non-zero number", %{ctx: ctx} do
+      assert {:error, message} = Elex.validate("10cm > 1", ctx)
+      assert message == "cannot compare length and number"
+    end
+
+    test "rejects comparing a quantity to a computed zero", %{ctx: ctx} do
+      assert {:error, message} = Elex.validate("10cm > (1 - 1)", ctx)
+      assert message == "cannot compare length and number"
+    end
+
+    test "rejects comparing a quantity to a number variable", %{ctx: ctx} do
+      ctx = Elex.add_variable!(ctx, "count", 0)
+
+      assert {:error, message} = Elex.validate("10cm > count", ctx)
+      assert message == "cannot compare length and number"
+    end
+  end
+
   describe "between converts into the first argument's unit" do
     test "same-category between validates as boolean", %{ctx: ctx} do
       assert Elex.validate("between(50cm, 1m, 2m)", ctx) == {:ok, :boolean}

@@ -208,6 +208,11 @@ defmodule Elex.Evaluator do
     left = evaluate!(left_ast, ctx)
     right = evaluate!(right_ast, ctx)
 
+    {left, right} = {
+      wrap_unitless_zero(left, right, ctx),
+      wrap_unitless_zero(right, left, ctx)
+    }
+
     case {left, right} do
       {%Decimal{}, %Decimal{}} -> Decimal.compare(left, right) == :eq
       {%Quantity{}, %Quantity{}} -> compare(left, right, ctx) == :eq
@@ -218,6 +223,11 @@ defmodule Elex.Evaluator do
   def evaluate!({:!=, [left_ast, right_ast]}, ctx) do
     left = evaluate!(left_ast, ctx)
     right = evaluate!(right_ast, ctx)
+
+    {left, right} = {
+      wrap_unitless_zero(left, right, ctx),
+      wrap_unitless_zero(right, left, ctx)
+    }
 
     case {left, right} do
       {%Decimal{}, %Decimal{}} -> Decimal.compare(left, right) != :eq
@@ -546,6 +556,18 @@ defmodule Elex.Evaluator do
     Decimal.compare(left.value, convert_to(right, left.unit, ctx))
   end
 
+  defp compare(%Quantity{} = left, %Decimal{} = right, ctx) do
+    case wrap_unitless_zero(right, left, ctx) do
+      %Quantity{} = wrapped -> compare(left, wrapped, ctx)
+    end
+  end
+
+  defp compare(%Decimal{} = left, %Quantity{} = right, ctx) do
+    case wrap_unitless_zero(left, right, ctx) do
+      %Quantity{} = wrapped -> compare(wrapped, right, ctx)
+    end
+  end
+
   defp compare(left, right, _ctx) when is_binary(left) and is_binary(right) do
     cond do
       left < right -> :lt
@@ -641,6 +663,16 @@ defmodule Elex.Evaluator do
   defp non_additive_if_category(symbol, category, ctx) do
     if Catalog.additive?(ctx.units, category), do: nil, else: symbol
   end
+
+  defp wrap_unitless_zero(%Decimal{} = decimal, %Quantity{} = other, ctx) do
+    if Decimal.compare(decimal, 0) == :eq and additive_quantity?(other, ctx) do
+      quantity(decimal, other.unit)
+    else
+      decimal
+    end
+  end
+
+  defp wrap_unitless_zero(value, _other, _ctx), do: value
 
   defp additive_quantity?(%Quantity{unit: unit}, ctx), do: additive_unit?(unit, ctx)
 
