@@ -48,6 +48,12 @@ defmodule Elex.Units.TemperatureTest do
     assert {:error, ^message} = Elex.evaluate("1C > 0", ctx)
   end
 
+  test "rejects min of temperature and literal 0", %{ctx: ctx} do
+    assert {:error, message} = Elex.validate("min(1C, 0)", ctx)
+    assert message == "cannot mix temperature and number"
+    assert {:error, ^message} = Elex.evaluate("min(1C, 0)", ctx)
+  end
+
   test "min of same-unit temperatures keeps C", %{ctx: ctx} do
     assert {:ok, %Elex.Quantity{value: value, unit: unit}} = Elex.evaluate("min(1C, 2C)", ctx)
     assert %Elex.Unit{monomial: %{"C" => 1}} = unit

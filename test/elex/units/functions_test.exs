@@ -468,6 +468,47 @@ defmodule Elex.Units.FunctionsTest do
     end
   end
 
+  describe "point functions with literal zero" do
+    test "min of 10cm and 0 is 0 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("min(10cm, 0)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<0 cm>"
+    end
+
+    test "min of 0 and 10cm takes the unit from the quantity argument", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("min(0, 10cm)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<0 cm>"
+    end
+
+    test "max of 10cm and 0 is 10 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("max(10cm, 0)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<10 cm>"
+    end
+
+    test "clamp of -1cm between 0 and 10cm is 0 cm", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("clamp(-1cm, 0, 10cm)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<0 cm>"
+    end
+
+    test "between 5cm, 0, and 10cm is true", %{ctx: ctx} do
+      assert Elex.evaluate("between(5cm, 0, 10cm)", ctx) == {:ok, true}
+    end
+
+    test "min of 0, 10cm, and 5mm aligns into the first quantity's unit", %{ctx: ctx} do
+      assert {:ok, qty} = Elex.evaluate("min(0, 10cm, 5mm)", ctx)
+      assert inspect(qty) == "#Elex.Quantity<0 cm>"
+    end
+
+    test "rejects min of a quantity and a non-zero number", %{ctx: ctx} do
+      assert {:error, message} = Elex.validate("min(10cm, 1)", ctx)
+      assert message == "cannot mix length and number"
+    end
+
+    test "rejects min of a quantity, literal 0, and a different category", %{ctx: ctx} do
+      assert {:error, message} = Elex.validate("min(10cm, 0, 1kg)", ctx)
+      assert message == "cannot mix length and mass"
+    end
+  end
+
   describe "between converts into the first argument's unit" do
     test "same-category between validates as boolean", %{ctx: ctx} do
       assert Elex.validate("between(50cm, 1m, 2m)", ctx) == {:ok, :boolean}
