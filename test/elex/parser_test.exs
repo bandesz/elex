@@ -183,10 +183,10 @@ defmodule Elex.ParserTest do
       assert_message("1 + + 2", "a value is missing after '+'", ctx)
     end
 
-    test "an expression can not start with an operator", %{ctx: ctx} do
-      assert_message("+ 1", "an expression can not start with '+'", ctx)
-      assert_message("* 1", "an expression can not start with '*'", ctx)
-      assert_message("% 1", "an expression can not start with '%'", ctx)
+    test "an expression cannot start with an operator", %{ctx: ctx} do
+      assert_message("+ 1", "an expression cannot start with '+'", ctx)
+      assert_message("* 1", "an expression cannot start with '*'", ctx)
+      assert_message("% 1", "an expression cannot start with '%'", ctx)
     end
 
     test "unexpected token or character", %{ctx: ctx} do

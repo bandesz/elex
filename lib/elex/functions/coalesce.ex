@@ -10,6 +10,7 @@ defmodule Elex.Functions.Coalesce do
   @behaviour Elex.Function
 
   alias Elex.Function
+  alias Elex.Validator
 
   @impl Function
   @doc false
@@ -17,7 +18,8 @@ defmodule Elex.Functions.Coalesce do
     %{
       name: :coalesce,
       variadic: true,
-      min_arity: 2
+      min_arity: 2,
+      units: :point
     }
   end
 
@@ -35,6 +37,13 @@ defmodule Elex.Functions.Coalesce do
 
   @impl Function
   @doc false
+  def evaluate_call(args_ast, context) do
+    target = Validator.first_quantity_unit(args_ast, context)
+    {:ok, eval_until_present(args_ast, target, context)}
+  end
+
+  @impl Function
+  @doc false
   def call(args) do
     {:ok, Enum.find(args, &(not is_nil(&1)))}
   end
@@ -48,6 +57,15 @@ defmodule Elex.Functions.Coalesce do
       category: :string
     }
   end
+
+  defp eval_until_present([arg_ast | rest], target, context) do
+    case Elex.Evaluator.evaluate!(arg_ast, context) do
+      nil -> eval_until_present(rest, target, context)
+      value -> Elex.Evaluator.align_to_unit(value, target, context)
+    end
+  end
+
+  defp eval_until_present([], _target, _context), do: nil
 
   defp validate_all(args_ast, context, validator) do
     Enum.reduce_while(args_ast, {:ok, []}, fn arg_ast, acc ->

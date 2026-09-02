@@ -9,12 +9,15 @@ Most callers use `Elex.evaluate/2`, which runs all three stages. For more
 control, use the modules directly:
 
 ```elixir
-context = Elex.new_context() |> Elex.add_variable("x", 10)
+context = Elex.new_context() |> Elex.add_variable!("x", 10)
 
 {:ok, ast, type} = Elex.Parser.parse("x + 5", context)
 # type => :decimal
 
 Elex.Evaluator.evaluate(ast, context)
+# => {:ok, #Decimal<15>}
+
+Elex.Evaluator.evaluate!(ast, context)
 # => #Decimal<15>
 ```
 
@@ -28,9 +31,11 @@ Elex.Validator.validate(ast, context)
 # => {:ok, :decimal} or {:error, reason}
 ```
 
-> **Note:** `Elex.Evaluator.evaluate/2` raises `RuntimeError` on failures.
-> `Elex.evaluate/2` catches these and returns `{:error, reason}`. Prefer the
-> high-level API unless you handle exceptions yourself.
+> **Note:** `Elex.Evaluator.evaluate/2` returns `{:ok, result}` or
+> `{:error, reason}`. `evaluate!/2` raises `RuntimeError` or `Decimal.Error`.
+> `Elex.evaluate/2` is the string-based API and returns the same `{:error,
+> reason}` strings without an extra prefix. Prefer the high-level API unless
+> you need the AST.
 
 ## AST format
 
@@ -46,6 +51,7 @@ The parser produces plain Erlang terms (tagged tuples). Common shapes:
 | `{op, [left, right]}` | Binary operator (`:+`, `:-`, `:*`, `:/`, `:%`, comparisons, `and`, `or`) |
 | `{:not, operand}` | Logical not |
 | `{-, operand}` | Unary minus |
+| `{:unit, decimal, "mm"}` | Unit suffix on a numeric literal (`10mm`, `3 m\|s`, `1 {kg * m \| s}`) |
 | `{:func, name, arity, args}` | Function call (`name` is a string, `args` is a list of AST nodes) |
 
 Example AST for `max(x, 10) + 1`:
@@ -83,14 +89,14 @@ Supported operations: `+`, `-`, `*`, `/` (with the variable on one side only).
 ```elixir
 alias Elex.{Parser, Inverter}
 
-context = Elex.new_context() |> Elex.add_variable("value", 0)
+context = Elex.new_context() |> Elex.add_variable!("value", 0)
 
 {:ok, ast, _} = Parser.parse("value * 2 + 5", context, validate: false)
 {:ok, inverted} = Inverter.invert(ast, "value")
 
 # Evaluate inverted AST with a known result to recover the original variable:
-result_context = Elex.new_context() |> Elex.add_variable("value", 21)
-Elex.Evaluator.evaluate(inverted, result_context)
+result_context = Elex.new_context() |> Elex.add_variable!("value", 21)
+Elex.Evaluator.evaluate!(inverted, result_context)
 # => #Decimal<8>  (because (8 * 2) + 5 = 21)
 ```
 
@@ -112,35 +118,124 @@ Implement the `Elex.Function` behaviour with four callbacks:
 | `call/1` | Execute with evaluated argument values |
 | `documentation/0` | Human-readable signature and description (optional `:category` atom for grouping) |
 
-### Example
+`call/1` arguments are already evaluated. With a unit catalog they may be
+`%Elex.Quantity{}` as well as `Decimal`. Do not pass a quantity to
+`Decimal.mult/2` (or similar) — unwrap `.value` first.
+
+`signature/0` may include `units: :point | :additive | :none | :convert |
+:wrap | :unwrap`. Omitted `units:` is **`:additive`**.
+
+| `units:` | Meaning |
+|----------|---------|
+| `:point` | Same category. Result unit is the first **quantity** argument (boolean/`null` args are skipped, so `if(cond, then, else)` uses the then-branch). Additive: convert later quantity args into that unit. Non-additive: `Elex.Unit.same?/2` required; no silent F→C. |
+| `:additive` | Reject non-additive arguments. Same-category linear args still convert into the first quantity argument's unit before `call/1`. **Default.** |
+| `:none` | Reject all quantities (`sqrt`, `pow`, `pi`, strings). |
+| `:convert` | First arg a quantity, second a string target; result unit is the target. |
+| `:wrap` | Number plus a registered name or alias (`add_unit`). |
+| `:unwrap` | Quantity to a number (`remove_unit`). |
+
+The evaluator converts later quantity arguments into the first **quantity**
+argument's unit for `:additive` functions, and for `:point` functions on
+**additive** categories. Static analysis uses the same rule for any
+function — including custom ones — so `if(false, coalesce(1m, 2m), 100cm)`
+and `if(false, double(1m), 100cm)` both return metres. Short-circuit
+functions (`if`, `coalesce`) may implement `evaluate_call/2`; catalog-aware
+functions (`convert`, `add_unit`) may implement `call/2`.
+
+`convert/2`, `add_unit/2`, and `remove_unit/1` declare `:convert`, `:wrap`,
+and `:unwrap`. Custom functions that omit `units:` are `:additive` — an
+unmarked `double(1C)` errors; `double(1m)` works. To preserve any quantity
+including `C`, set `units: :point` (`2 * 1C` stays illegal as a language
+op).
+
+Use `Elex.Validator.same_numeric_type/2` when every argument must be the same
+numeric type (`:decimal` or one category). It returns `{:ok, type}`,
+`{:mismatch, type}` when the first argument is not numeric,
+`{:mismatch, expected, got}` when later arguments differ, or `{:error, reason}`.
+Use `Elex.Validator.numeric_mismatch_message/2` for the built-in wording
+(`cannot mix length and mass` vs `expects number arguments, got string`).
+Non-additive `:point` functions also require `Elex.Unit.same?/2` (the validator
+enforces this).
+
+Pick one of three patterns.
+
+### Reject unitful arguments
+
+`sqrt`-style: only numbers (no units). Set `units: :none`, check
+`{:ok, :decimal}`, and leave `call/1` matching on `Decimal`. String
+functions use the same `units: :none` policy:
 
 ```elixir
-defmodule MyApp.Functions.Double do
-  @behaviour Elex.Function
+def signature, do: %{name: :sqrt, arity: 1, units: :none}
 
-  @impl true
-  def signature, do: %{name: :double, arity: 1}
-
-  @impl true
-  def validate([arg], ctx) do
-    case Elex.Validator.validate(arg, ctx) do
-      {:ok, :decimal} -> {:ok, :decimal}
-      {:ok, type} -> {:error, "double expects a number, got #{inspect(type)}"}
-      {:error, reason} -> {:error, reason}
-    end
+def validate([arg], ctx) do
+  case Elex.Validator.validate(arg, ctx) do
+    {:ok, :decimal} -> {:ok, :decimal}
+    {:ok, type} -> {:error, "sqrt expects a number, got #{inspect(type)}"}
+    {:error, reason} -> {:error, reason}
   end
+end
 
-  @impl true
-  def call([arg]), do: {:ok, Decimal.mult(arg, Decimal.new(2))}
+def call([arg]) when is_struct(arg, Decimal) do
+  {:ok, Decimal.sqrt(arg)}
+end
+```
 
-  @impl true
-  def documentation do
-    %{
-      signature: "double(x)",
-      description: "returns x multiplied by 2",
-      category: :math
-    }
+### Preserve the unit
+
+`abs`-style: accept a number or a quantity of one category. Set
+`units: :point` so same-unit non-additive quantities (`1C`) are allowed.
+Validate with `same_numeric_type/2`, unwrap the quantity in `call/1`, then
+rewrap the same unit. Omitted `units:` is `:additive` and rejects `1C`.
+
+```elixir
+def signature, do: %{name: :abs, arity: 1, units: :point}
+
+def validate([arg], ctx) do
+  case Elex.Validator.same_numeric_type([arg], ctx) do
+    {:ok, type} -> {:ok, type}
+    {:mismatch, type} -> {:error, "abs expects a number, got #{inspect(type)}"}
+    {:error, reason} -> {:error, reason}
   end
+end
+
+def call([%Elex.Quantity{value: value, unit: unit}]) do
+  {:ok, result} = call([value])
+  {:ok, %Elex.Quantity{value: result, unit: unit}}
+end
+
+def call([arg]) when is_struct(arg, Decimal) do
+  {:ok, Decimal.abs(arg)}
+end
+```
+
+### Same-category multi-arg
+
+`min` / `between`-style: `units: :point` and `same_numeric_type/2` so every
+argument is `:decimal` or the same category. On additive categories, later
+quantity arguments are already converted into the first quantity argument's unit, so
+`call/1` can compare or combine `.value` fields and rewrap the first unit
+(or return a boolean). On non-additive categories the units must already
+match (`min(1C, 2C)` works; `min(1C, 32F)` errors):
+
+```elixir
+def signature, do: %{name: :min, variadic: true, min_arity: 2, units: :point}
+
+def validate(args_ast, ctx) do
+  case Elex.Validator.same_numeric_type(args_ast, ctx) do
+    {:ok, type} -> {:ok, type}
+    {:error, reason} -> {:error, reason}
+    mismatch -> {:error, Elex.Validator.numeric_mismatch_message("min", mismatch)}
+  end
+end
+
+def call([%Elex.Quantity{unit: unit} | _] = args) do
+  {:ok, result} = call(Enum.map(args, & &1.value))
+  {:ok, %Elex.Quantity{value: result, unit: unit}}
+end
+
+def call([first | rest]) do
+  {:ok, Enum.reduce(rest, first, &Decimal.min/2)}
 end
 ```
 
@@ -159,6 +254,11 @@ context =
 # => #Decimal<10>
 ```
 
+The `Elex.Function` Double example omits `units:`, so it is `:additive`.
+`double(1m)` works; `double(1C)` errors. Language ops still reject
+`2 * 1C`. Setting `units: :point` would allow `double(1C)` because
+`double` is a function, not `*`.
+
 ### Variadic functions
 
 Return a variadic signature with `min_arity`:
@@ -173,9 +273,10 @@ The context stores variadic functions under `{name, :variadic}`.
 
 ## Localizing type error labels
 
-`Elex.Labels.label/1` maps type atoms to human-readable names used in error
-messages (`:decimal` → `"number"`, etc.). Override this function in your
-application to integrate with Gettext for localization.
+`Elex.Labels.label/1` maps type atoms and `%Elex.Dimension{}` structs to
+human-readable names used in error messages (`:decimal` → `"number"`,
+`%Elex.Dimension{monomial: %{length: 1}}` → `"length"`). Override this
+function in your application to integrate with Gettext for localization.
 
 ## Further reading
 

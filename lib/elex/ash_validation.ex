@@ -34,7 +34,9 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
     - `:context` (required) — A [`Elex.Context`](Elex.Context) defining allowed variables
       and functions
     - `:expected_type` (required) — Expected result type (`:decimal`, `:boolean`, or
-      `:string`)
+      `:string`). When the context has a units catalog, may also be a catalog
+      category atom such as `:length`; that is passed as `category:` to
+      [`Elex.validate/3`](Elex.html#validate/3), not compared to a returned atom.
     - `:add_value_type_from_attribute` — When set to an attribute atom, adds a `"value"`
       variable to the context with the type from that attribute's current value
     - `:description` — Optional description shown in validation error messages
@@ -68,12 +70,40 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
       end
     end
 
+    @primitive_types [:decimal, :boolean, :string]
+
     defp validate_expected_type_option(opts) do
       case Keyword.get(opts, :expected_type) do
-        nil -> {:error, "the :expected_type option is required"}
-        type when is_atom(type) -> {:ok, type}
-        _ -> {:error, "the :expected_type option must be an atom"}
+        nil ->
+          {:error, "the :expected_type option is required"}
+
+        type when is_atom(type) ->
+          validate_expected_type_atom(type, Keyword.get(opts, :context))
+
+        _ ->
+          {:error, "the :expected_type option must be an atom"}
       end
+    end
+
+    defp validate_expected_type_atom(type, %Elex.Context{units: %Elex.Units.Catalog{} = catalog}) do
+      cond do
+        type in @primitive_types ->
+          {:ok, type}
+
+        Map.has_key?(Elex.Units.Catalog.categories(catalog), type) ->
+          {:ok, type}
+
+        true ->
+          {:error, "the :expected_type :#{type} is not a registered category"}
+      end
+    end
+
+    defp validate_expected_type_atom(type, _context) when type in @primitive_types do
+      {:ok, type}
+    end
+
+    defp validate_expected_type_atom(type, _context) do
+      {:error, "the :expected_type :#{type} requires a units catalog on the context"}
     end
 
     defp validate_add_value_type_option(opts) do
@@ -84,7 +114,6 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
       end
     end
 
-    alias Elex.Parser
     alias Elex.Variable
 
     @impl true
@@ -105,34 +134,53 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
 
       case Ash.Changeset.fetch_change(changeset, attribute) do
         {:ok, expression_string} when is_binary(expression_string) ->
-          case Parser.parse(expression_string, context) do
-            {:ok, _ast, ^expected_type} ->
-              :ok
-
-            {:ok, _ast, actual_type} ->
-              {:error,
-               [
-                 field: attribute,
-                 message: "must return #{expected_type}, but returns #{actual_type}",
-                 value: expression_string
-               ]
-               |> with_description(opts)
-               |> InvalidAttribute.exception()}
-
-            {:error, reason} ->
-              {:error,
-               [
-                 field: attribute,
-                 message: reason,
-                 value: expression_string
-               ]
-               |> with_description(opts)
-               |> InvalidAttribute.exception()}
-          end
+          check_expression(expression_string, context, expected_type, attribute, opts)
 
         _ ->
           :ok
       end
+    end
+
+    defp check_expression(expression_string, context, expected_type, attribute, opts) do
+      category? = category_expected?(expected_type, context)
+      validate_opts = if category?, do: [category: expected_type], else: []
+
+      case Elex.validate(expression_string, context, validate_opts) do
+        {:ok, _actual_type} when category? ->
+          :ok
+
+        {:ok, actual_type} when actual_type == expected_type ->
+          :ok
+
+        {:ok, actual_type} ->
+          invalid_attribute(
+            attribute,
+            "must return #{expected_type}, but returns #{actual_type}",
+            expression_string,
+            opts
+          )
+
+        {:error, reason} ->
+          invalid_attribute(attribute, reason, expression_string, opts)
+      end
+    end
+
+    defp category_expected?(type, %Elex.Context{units: %Elex.Units.Catalog{}})
+         when type not in @primitive_types do
+      true
+    end
+
+    defp category_expected?(_type, _context), do: false
+
+    defp invalid_attribute(attribute, message, expression_string, opts) do
+      {:error,
+       [
+         field: attribute,
+         message: message,
+         value: expression_string
+       ]
+       |> with_description(opts)
+       |> InvalidAttribute.exception()}
     end
   end
 end

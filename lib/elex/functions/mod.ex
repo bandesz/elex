@@ -12,13 +12,15 @@ defmodule Elex.Functions.Mod do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels, only: [got: 1]
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :mod,
-      arity: 2
+      arity: 2,
+      units: :none
     }
   end
 
@@ -31,7 +33,7 @@ defmodule Elex.Functions.Mod do
          {:ok, :decimal} <- Validator.validate(arg2_ast, context) do
       {:ok, :decimal}
     else
-      {:ok, other_type} -> {:error, "mod function expects number arguments, got #{other_type}"}
+      {:ok, other_type} -> {:error, "mod function expects number arguments, #{got(other_type)}"}
       {:error, reason} -> {:error, reason}
     end
   end

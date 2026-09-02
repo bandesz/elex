@@ -18,6 +18,26 @@ Elex.evaluate("-(1 + 2)", context) # #Decimal<-3>
 
 All arithmetic is performed with `Decimal` for precision.
 
+Scientific notation is part of the number (`1e3`, `1.5E-2`, `2e+3`). A unit
+suffix may follow (`1e3mm` is 1000 millimetres). `10eV` is ten of a unit named
+`eV` — the exponent form requires a digit after `e`/`E`.
+
+### Unit suffixes
+
+With a units catalog on the context (see [Units](units.md)), a number may be
+followed by a registered **name** (`10mm` or `10 mm`), a power suffix
+(`5 m^2`), an unbraced pipe (`3 m|s`, `3 m | s^2`), or a braced formula
+(`1 {kg * m | s}`).
+
+Registered **aliases** of a canonical unit (`m2` for `"m^2"`) are also
+valid suffixes (`5 m2`).
+
+`e` and `E` cannot be registered as unit names, so they stay available for
+scientific notation.
+
+Parse traps (`10m / s`, spaces around `^`, copying inspect) are in
+[Units — Gotchas](units.md#gotchas).
+
 ### Booleans
 
 ```elixir
@@ -91,8 +111,15 @@ Parentheses override precedence: `(1 + 2) * 3`.
 
 ### Arithmetic
 
-`+`, `-`, `*`, `/`, and `%` require decimal operands and return a decimal.
-
+`+` and `-` add or subtract decimals, or quantities of the same dimension
+(the right-hand unit converts into the left). Mixing a quantity with a
+number is an error (`1m + 2` is `cannot add length and number`). Non-additive categories (`additive: false`,
+typically temperature) reject binary `+ − * /`; use `add_unit` / `remove_unit`
+for magnitude arithmetic. `*` and `/` scale a quantity by a number,
+or combine two quantities (same-category factors convert into the left unit
+first). Same-dimension division cancels to a decimal (`1m / 1m` → `1`;
+`1ha / 1 {m^2}` → `10000` when hectare is registered with a scale from
+square metres). `%` requires decimal operands (no quantities).
 The `%` operator is remainder (sign follows the dividend), same as `rem(a, b)`.
 For floored modulo, use the `mod(a, b)` function instead.
 
@@ -101,6 +128,8 @@ For floored modulo, use the `mod(a, b)` function instead.
 Comparison operators return a boolean. Operands must have the same type:
 
 - **Decimals** — numeric ordering
+- **Quantities** — same dimension; the right-hand unit converts into the left
+  (non-additive categories also require the same unit)
 - **Strings** — lexicographic ordering
 - **Booleans** — `true`/`false` ordering
 - **Null** — equality (`==`, `!=`) only
@@ -136,11 +165,12 @@ has a type; operators and functions enforce compatibility before evaluation.
 | `:boolean` | True/false | `true`, `false` |
 | `:string` | Text | `"hello"` |
 | `nil` | Null | `null`, nil variables |
+| `%Elex.Dimension{}` | Unitful validate result | `#Elex.Dimension<length>`, `#Elex.Dimension<length \| time>` |
 
 Type errors are reported as human-readable strings, for example:
 
 ```
-'+' operator can not be used on number and text
+'+' operator cannot be used on number and text
 ```
 
 ## Function calls
@@ -164,4 +194,5 @@ Functions use familiar call syntax: `name(arg1, arg2)`. See the
 ## Further reading
 
 - [Functions](functions.md) — built-in function reference
+- [Units](units.md) — catalogs, quantities, conversion, and [gotchas](units.md#gotchas)
 - [Advanced Topics](advanced.md) — working with the AST directly

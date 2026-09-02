@@ -9,13 +9,16 @@ defmodule Elex.Functions.If do
   @behaviour Elex.Function
 
   alias Elex.Function
+  alias Elex.Validator
+  import Elex.Labels
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :if,
-      arity: 3
+      arity: 3,
+      units: :point
     }
   end
 
@@ -30,15 +33,29 @@ defmodule Elex.Functions.If do
       if type1 == type2 do
         {:ok, type1}
       else
-        {:error, "if branches must have the same type, got #{type1} and #{type2}"}
+        {:error, "if branches must have the same type, got #{label(type1)} and #{label(type2)}"}
       end
     else
       {:ok, cond_type} ->
-        {:error, "if condition must be a boolean, got #{cond_type}"}
+        {:error, "if condition must be a boolean, got #{label(cond_type)}"}
 
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  @impl Function
+  @doc false
+  def evaluate_call([cond_ast, true_ast, false_ast], context) do
+    value =
+      if Elex.Evaluator.evaluate!(cond_ast, context) do
+        Elex.Evaluator.evaluate!(true_ast, context)
+      else
+        Elex.Evaluator.evaluate!(false_ast, context)
+      end
+
+    target = Validator.first_quantity_unit([cond_ast, true_ast, false_ast], context)
+    {:ok, Elex.Evaluator.align_to_unit(value, target, context)}
   end
 
   @impl Function

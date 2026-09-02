@@ -14,7 +14,7 @@ defmodule Elex.Functions.MatchTest do
 
     case Parser.parse(expression, ctx) do
       {:ok, ast, _type} ->
-        Evaluator.evaluate(ast, ctx)
+        Evaluator.evaluate!(ast, ctx)
 
       {:error, reason} ->
         flunk("Parsing and evaluation failed unexpectedly: #{reason}")
@@ -61,7 +61,7 @@ defmodule Elex.Functions.MatchTest do
     test "returns evaluation error for invalid regex pattern" do
       ctx = Elex.new_context()
 
-      assert {:error, "Evaluation error: " <> reason} =
+      assert {:error, reason} =
                Elex.evaluate(~s|match("hello", "[")|, ctx)
 
       assert reason =~ "invalid regex pattern"

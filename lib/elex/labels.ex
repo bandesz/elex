@@ -45,4 +45,28 @@ defmodule Elex.Labels do
   def label(:boolean), do: "yes/no"
   def label(nil), do: "empty"
   def label(:unknown), do: "value"
+  def label(%Elex.Dimension{} = dim), do: to_string(dim)
+  def label(type) when is_atom(type), do: Atom.to_string(type)
+
+  @doc """
+  Formats a `got …` clause for function type errors.
+
+  Primitive types stay `got decimal`. Category atoms become `got length quantity`
+  so `length(1m)` is not read as a tautology.
+
+  ## Examples
+
+      got(:decimal)
+      #=> "got decimal"
+
+      got(:length)
+      #=> "got length quantity"
+
+  """
+  def got(nil), do: "got empty"
+  def got(type) when type in [:decimal, :string, :boolean], do: "got #{type}"
+  def got({:dim, dim}) when is_map(dim), do: got(%Elex.Dimension{monomial: dim})
+  def got(%Elex.Dimension{monomial: monomial}) when map_size(monomial) == 0, do: "got number"
+  def got(%Elex.Dimension{} = dim), do: "got #{dim} quantity"
+  def got(type) when is_atom(type), do: "got #{type} quantity"
 end

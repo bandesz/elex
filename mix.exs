@@ -13,7 +13,7 @@ defmodule Elex.MixProject do
       test_coverage: [summary: [threshold: 80]],
       elixirc_options: elixirc_options(Mix.env()),
       description:
-        "Parse, validate, and evaluate mathematical and logical expressions with variables, functions, and optional Ash integration.",
+        "Parse, validate, and evaluate mathematical and logical expressions with variables, functions, optional unit catalogs, and optional Ash integration.",
       package: package(),
       # Docs
       name: "Elex",
@@ -25,6 +25,7 @@ defmodule Elex.MixProject do
           "guides/getting-started.md": [title: "Getting Started"],
           "guides/expression-language.md": [title: "Expression Language"],
           "guides/functions.md": [title: "Functions"],
+          "guides/units.md": [title: "Units"],
           "guides/ash-integration.md": [title: "Ash Integration"],
           "guides/advanced.md": [title: "Advanced Topics"],
           "CHANGELOG.md": [title: "Changelog"],
@@ -37,6 +38,13 @@ defmodule Elex.MixProject do
             Elex.Evaluator,
             Elex.Validator,
             Elex.Parser.ErrorFormatter
+          ],
+          Units: [
+            Elex.Quantity,
+            Elex.Unit,
+            Elex.Dimension,
+            Elex.Units.Catalog,
+            Elex.Units.Formula
           ],
           Extensions: [Elex.Function, Elex.AshValidation, Elex.Inverter, Elex.Labels],
           "Built-in Functions": ~r/Elex\.Functions\./

@@ -49,8 +49,8 @@ defmodule Elex.Parser.ErrorFormatterTest do
       assert ErrorFormatter.humanize("1 and", "and", 2) == "a value is missing after 'and'"
     end
 
-    test "an expression can not start with an operator" do
-      assert ErrorFormatter.humanize("* 1", "* 1", 0) == "an expression can not start with '*'"
+    test "an expression cannot start with an operator" do
+      assert ErrorFormatter.humanize("* 1", "* 1", 0) == "an expression cannot start with '*'"
     end
 
     test "empty parentheses" do
@@ -61,6 +61,21 @@ defmodule Elex.Parser.ErrorFormatterTest do
     test "unexpected token falls back to the offending snippet" do
       assert ErrorFormatter.humanize("1 2", "2", 2) == "unexpected '2'"
       assert ErrorFormatter.humanize("1 & 2", "& 2", 2) == "unexpected '&'"
+    end
+
+    test "negative exponent remainder hints at braces" do
+      assert ErrorFormatter.humanize("5m^-1", "^-1", 2) ==
+               "negative exponents belong in braces, for example 1 {s^-2}"
+    end
+
+    test "a spaced power remainder hints at a glued suffix" do
+      assert ErrorFormatter.humanize("5m ^ 2", "^ 2", 3) ==
+               "spaces around '^' are not a power suffix; write 5m^2"
+    end
+
+    test "a trailing pipe remainder hints at a braced formula" do
+      assert ErrorFormatter.humanize("1 kg * m | s", "| s", 9) ==
+               "unexpected '|'; compound units belong in braces, for example 1 {kg * m | s}"
     end
 
     test "reports an incomplete expression when only whitespace remains" do

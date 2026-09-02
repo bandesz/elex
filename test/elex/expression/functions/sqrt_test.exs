@@ -14,7 +14,7 @@ defmodule Elex.Functions.SqrtTest do
 
     case Parser.parse(expression, ctx) do
       {:ok, ast, _type} ->
-        Evaluator.evaluate(ast, ctx)
+        Evaluator.evaluate!(ast, ctx)
 
       {:error, reason} ->
         flunk("Parsing and evaluation failed unexpectedly: #{reason}")
@@ -51,7 +51,7 @@ defmodule Elex.Functions.SqrtTest do
     test "returns evaluation error for negative argument" do
       ctx = Elex.new_context()
 
-      assert {:error, "Evaluation error: " <> _} =
+      assert {:error, _} =
                Elex.evaluate("sqrt(-1)", ctx)
     end
 

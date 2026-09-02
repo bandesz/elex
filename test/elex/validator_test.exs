@@ -121,7 +121,7 @@ defmodule Elex.ValidatorTest do
     test "returns error with human-readable label for non-boolean operand" do
       ctx = Elex.new_context()
 
-      assert {:error, "not operator can not be used on number value"} =
+      assert {:error, "not operator cannot be used on number value"} =
                Validator.validate({:not, Decimal.new(1)}, ctx)
     end
   end

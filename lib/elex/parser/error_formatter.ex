@@ -99,14 +99,33 @@ defmodule Elex.Parser.ErrorFormatter do
       value_start?(remainder) and open_group_kind(consumed) == :function ->
         "arguments must be separated by commas"
 
+      hint = unit_suffix_hint(remainder) ->
+        hint
+
       true ->
         "unexpected '#{first_token(remainder)}'"
     end
   end
 
+  defp unit_suffix_hint(remainder) do
+    cond do
+      String.starts_with?(remainder, "^-") ->
+        "negative exponents belong in braces, for example 1 {s^-2}"
+
+      String.starts_with?(remainder, "^") ->
+        "spaces around '^' are not a power suffix; write 5m^2"
+
+      String.starts_with?(remainder, "|") ->
+        "unexpected '|'; compound units belong in braces, for example 1 {kg * m | s}"
+
+      true ->
+        nil
+    end
+  end
+
   defp operator_message(operator, consumed) do
     if blank?(consumed) do
-      "an expression can not start with '#{operator}'"
+      "an expression cannot start with '#{operator}'"
     else
       "a value is missing after '#{operator}'"
     end

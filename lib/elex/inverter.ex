@@ -13,7 +13,7 @@ defmodule Elex.Inverter do
 
   ## Examples
 
-      context = Elex.new_context() |> Elex.add_variable("value", 0)
+      context = Elex.new_context() |> Elex.add_variable!("value", 0)
       {:ok, ast, _} = Elex.Parser.parse("value + 5", context, validate: false)
       Elex.Inverter.invert(ast, "value")
       #=> {:ok, {:-, [{:var, "value"}, #Decimal<5>]}}

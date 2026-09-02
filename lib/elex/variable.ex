@@ -8,8 +8,11 @@ defmodule Elex.Variable do
 
   ## Fields
 
-  - `:type` - One of `:decimal`, `:boolean`, `:string`, `nil`, or `:unknown`
-  - `:value` - The runtime value (`Decimal.t()`, `boolean()`, `String.t()`, etc.)
+  - `:type` - One of `:decimal`, `:boolean`, `:string`, `nil`, `:unknown`, or a
+    unit category atom such as `:length`
+  - `:value` - The runtime value (`Decimal.t()`, `boolean()`, `String.t()`,
+    `{number, unit}` or [`Elex.Quantity.t()`](Elex.Quantity) for a categorized
+    quantity, etc.)
 
   ## Examples
 

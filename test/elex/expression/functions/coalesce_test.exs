@@ -6,7 +6,7 @@ defmodule Elex.Functions.CoalesceTest do
   defp eval(expression, ctx \\ Elex.new_context()) do
     case Parser.parse(expression, ctx) do
       {:ok, ast, _} ->
-        {:ok, Evaluator.evaluate(ast, ctx)}
+        {:ok, Evaluator.evaluate!(ast, ctx)}
 
       {:error, reason} ->
         {:error, reason}

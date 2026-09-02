@@ -9,13 +9,15 @@ defmodule Elex.Functions.Lower do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :lower,
-      arity: 1
+      arity: 1,
+      units: :none
     }
   end
 
@@ -25,9 +27,14 @@ defmodule Elex.Functions.Lower do
     alias Elex.Validator
 
     case Validator.validate(arg_ast, context) do
-      {:ok, :string} -> {:ok, :string}
-      {:ok, other_type} -> {:error, "lower function expects a string argument, got #{other_type}"}
-      {:error, reason} -> {:error, reason}
+      {:ok, :string} ->
+        {:ok, :string}
+
+      {:ok, other_type} ->
+        {:error, "lower function expects a string argument, #{got(other_type)}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

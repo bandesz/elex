@@ -9,13 +9,15 @@ defmodule Elex.Functions.EndsWith do
   @behaviour Elex.Function
 
   alias Elex.Function
+  import Elex.Labels
 
   @impl Function
   @doc false
   def signature do
     %{
       name: :ends_with,
-      arity: 2
+      arity: 2,
+      units: :none
     }
   end
 
@@ -29,7 +31,7 @@ defmodule Elex.Functions.EndsWith do
       {:ok, :boolean}
     else
       {:ok, other_type} ->
-        {:error, "ends_with function expects string arguments, got #{other_type}"}
+        {:error, "ends_with function expects string arguments, #{got(other_type)}"}
 
       {:error, reason} ->
         {:error, reason}
