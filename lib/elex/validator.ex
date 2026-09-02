@@ -116,12 +116,44 @@ defmodule Elex.Validator do
 
   defp accumulate_numeric_type(ast, expected, ctx) do
     case validate(ast, ctx) do
-      {:error, reason} -> {:halt, {:error, reason}}
-      {:ok, type} -> match_numeric_type(type, expected)
+      {:error, reason} ->
+        {:halt, {:error, reason}}
+
+      {:ok, type} ->
+        if literal_zero?(ast) do
+          match_literal_zero(expected, ctx)
+        else
+          match_numeric_type(type, expected, ctx)
+        end
     end
   end
 
-  defp match_numeric_type(type, expected) do
+  defp match_literal_zero(:unset, _ctx), do: {:cont, :zero}
+  defp match_literal_zero(:zero, _ctx), do: {:cont, :zero}
+  defp match_literal_zero(:decimal, _ctx), do: {:cont, :decimal}
+
+  defp match_literal_zero(expected, ctx) do
+    if additive_quantity_type?(expected, ctx) do
+      {:cont, expected}
+    else
+      {:halt, {:mismatch, expected, :decimal}}
+    end
+  end
+
+  defp match_numeric_type(type, :zero, ctx) do
+    cond do
+      not numeric_type?(type) ->
+        {:halt, {:mismatch, :decimal, type}}
+
+      type == :decimal or additive_quantity_type?(type, ctx) ->
+        {:cont, type}
+
+      true ->
+        {:halt, {:mismatch, :decimal, type}}
+    end
+  end
+
+  defp match_numeric_type(type, expected, _ctx) do
     cond do
       not numeric_type?(type) and expected == :unset ->
         {:halt, {:mismatch, type}}
@@ -140,6 +172,7 @@ defmodule Elex.Validator do
   defp wrap_same_numeric({:error, _} = err), do: err
   defp wrap_same_numeric({:mismatch, _, _} = mismatch), do: mismatch
   defp wrap_same_numeric({:mismatch, _} = mismatch), do: mismatch
+  defp wrap_same_numeric(:zero), do: {:ok, :decimal}
   defp wrap_same_numeric(type), do: {:ok, type}
 
   @doc false

@@ -297,6 +297,10 @@ defmodule Elex.Evaluator do
     end
   end
 
+  def align_to_unit(%Decimal{} = decimal, %Unit{} = unit, ctx) do
+    wrap_unitless_zero(decimal, quantity(decimal, unit), ctx)
+  end
+
   def align_to_unit(value, _unit, _ctx), do: value
 
   @doc false
