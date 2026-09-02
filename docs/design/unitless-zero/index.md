@@ -186,7 +186,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `if` / `coalesce`; comparison ops (Task 1.1)
 
 ### Task 1.3: `if` / `coalesce`
-**Status:** in progress
+**Status:** done — `6f8bbfb`
 
 - Files: Modify `lib/elex/functions/if.ex`, `lib/elex/functions/coalesce.ex` (and validator unify helper if shared); Test `test/elex/units/functions_test.exs`, `test/elex/units/temperature_test.exs`
 - TDD: yes
@@ -200,7 +200,7 @@ Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functi
 - Out of scope: `min` / `clamp`; `+` / `-`
 
 ### Task 1.4: Guides and changelog
-**Status:** pending
+**Status:** in progress
 
 - Files: Modify `guides/units.md`, `guides/functions.md`, `CHANGELOG.md`, `lib/elex/function.ex`
 - TDD: no
