@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Literal unitless `0` (`0`, `0.0`, `-0`) next to an additive quantity in
+  comparisons and `:point` functions (`10cm > 0`, `clamp(width, 0, 10cm)`,
+  `if(width > 0, width, 0)`). `10cm + 0` and non-additive `1C > 0` stay errors
+
 ## [0.3.0] - 2026-09-02
 
 ### Added
