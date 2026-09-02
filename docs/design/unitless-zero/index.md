@@ -5,7 +5,7 @@ Allow a **literal** `0` with no unit when comparing or combining with an **addit
 Follow-on to [units](../units/index.md). User flows below are canonical.
 
 ## Implementation status
-**Status:** in progress — implementation review
+**Status:** complete
 
 ## Problem and constraints
 
@@ -152,6 +152,14 @@ Library-only ExUnit and unit TDD (`test-driven-development`). No UI flow tests. 
 | 4 | `test/elex/units/arithmetic_test.exs`, `test/elex/units/temperature_test.exs` | `10cm + 0` still errors; `1C > 0` / `min(1C, 0)` still errors; `10cm * 0` unchanged |
 
 Guides: `guides/units.md` (comparisons, functions, non-additive), `guides/functions.md` (`clamp` / `between` / `if`). `CHANGELOG.md` Unreleased. `lib/elex/function.ex` `:point` / `same_numeric_type` note.
+
+Coverage (implementation):
+
+- [x] Flow 1 comparisons and error paths (`functions_test.exs`, `arithmetic_test.exs`)
+- [x] Flow 2 `min` / `max` / `clamp` / `between` (`functions_test.exs`)
+- [x] Flow 3 `if` / `coalesce` (`functions_test.exs`)
+- [x] Flow 4 `1m + 0`, `1C > 0`, `min(1C, 0)`, `if(true, 1C, 0)` (`arithmetic_test.exs`, `temperature_test.exs`)
+
 
 ## Batch 1: Unitless zero
 **Status:** done
