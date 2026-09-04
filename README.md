@@ -36,7 +36,7 @@ Add `elex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.3.0"}
+    {:elex, "~> 0.3.1"}
   ]
 end
 ```
