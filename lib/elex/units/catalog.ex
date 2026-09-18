@@ -69,7 +69,8 @@ defmodule Elex.Units.Catalog do
   `identity:` — a unit formula of the base-hub product. A matching identity
   unit must still be registered before `put_units/2`. `identity:` is
   rejected on base categories. `default_result_unit:` is rejected; use
-  `default:`. `additive:` defaults to `true`; offset conversions require
+  `default:`. `additive:` defaults to `true`; offset conversions
+  (`to_default(0) ≠ 0`) and reciprocal conversions (`k / value`) require
   `additive: false`.
 
   ## Returns
@@ -261,9 +262,15 @@ defmodule Elex.Units.Catalog do
   end
 
   defp affine_conversion?(ast) do
+    case conversion_at_zero(ast) do
+      {:ok, offset} -> Decimal.compare(offset, Decimal.new(0)) != :eq
+      {:error, _reason} -> true
+    end
+  end
+
+  defp conversion_at_zero(ast) do
     ctx = Elex.new_context() |> Elex.add_variable!("value", Decimal.new(0))
-    offset = Elex.Evaluator.evaluate!(ast, ctx)
-    Decimal.compare(offset, Decimal.new(0)) != :eq
+    Elex.Evaluator.evaluate(ast, ctx)
   end
 
   @doc """
@@ -561,10 +568,32 @@ defmodule Elex.Units.Catalog do
   defp additive?(opts), do: Keyword.get(opts, :additive, true)
 
   defp reject_offset_on_additive(category, category_entry, name, ast) do
-    if Map.get(category_entry, :additive, true) and affine_conversion?(ast) do
-      {:error, "offset conversion for '#{name}' is not allowed on additive category :#{category}"}
+    if Map.get(category_entry, :additive, true) do
+      reject_nonlinear_on_additive(category, name, ast)
     else
       :ok
+    end
+  end
+
+  defp reject_nonlinear_on_additive(category, name, ast) do
+    case conversion_at_zero(ast) do
+      {:ok, offset} ->
+        reject_nonzero_offset(category, name, offset)
+
+      {:error, "division by zero"} ->
+        {:error,
+         "reciprocal conversion for '#{name}' is not allowed on additive category :#{category}"}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp reject_nonzero_offset(category, name, offset) do
+    if Decimal.compare(offset, Decimal.new(0)) == :eq do
+      :ok
+    else
+      {:error, "offset conversion for '#{name}' is not allowed on additive category :#{category}"}
     end
   end
 
