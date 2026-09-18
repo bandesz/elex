@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-18
+
+### Added
+
+- Reciprocal conversions (`k / value`) on non-additive categories, such as
+  mpg ↔ L/100km. The same conversion on an additive category is a
+  registration error instead of raising
+
 ## [0.3.1] - 2026-09-04
 
 ### Added
@@ -128,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.3.2]: https://github.com/bandesz/elex/releases/tag/v0.3.2
 [0.3.1]: https://github.com/bandesz/elex/releases/tag/v0.3.1
 [0.3.0]: https://github.com/bandesz/elex/releases/tag/v0.3.0
 [0.2.3]: https://github.com/bandesz/elex/releases/tag/v0.2.3
