@@ -24,6 +24,9 @@ defmodule Elex do
     `add_unit` / `remove_unit` for magnitude arithmetic. Formula strings
     use `|` for division (`m | s`, `km | h`), not `/`. `evaluate/3`
     accepts `unit:` and `category:`; `validate/3` accepts `category:` only
+  - Identifier autocomplete (`autocomplete/4`) at a 0-based UTF-8 byte
+    offset; works on incomplete input. `empty_prefix: :none` (default)
+    or `:all`
 
   ## Quick start
 
@@ -252,6 +255,15 @@ defmodule Elex do
     {Keyword.get(opts, :unit), Keyword.get(opts, :category)}
   end
 
+  defp autocomplete_opts!(opts) do
+    reject_unknown_opts!(opts, [:empty_prefix], :autocomplete)
+
+    case Keyword.get(opts, :empty_prefix, :none) do
+      empty_prefix when empty_prefix in [:none, :all] -> empty_prefix
+      _other -> raise ArgumentError, "empty_prefix must be :none or :all"
+    end
+  end
+
   defp reject_unknown_opts!(opts, allowed, api) do
     case Keyword.keys(opts) -- allowed do
       [] -> :ok
@@ -365,6 +377,43 @@ defmodule Elex do
 
   defp do_extract_variables(_literal) do
     []
+  end
+
+  @doc """
+  Suggests completions at a cursor byte offset in an expression.
+
+  Works on incomplete input. The cursor is a 0-based UTF-8 byte offset.
+  The result's `:range` is the whole token under the cursor (exclusive end);
+  `:suggestions` are filtered by the prefix from the token start up to the cursor.
+
+  ## Options
+
+  - `empty_prefix:` `:none` (default) returns no suggestions when the prefix is
+    empty; `:all` dumps matching candidates for the current slot. Unknown option
+    keys or an invalid `empty_prefix` raise `ArgumentError`.
+
+  ## Examples
+
+      context = Elex.new_context() |> Elex.add_variable!("foo", 1)
+      {:ok, %{range: {9, 10}, suggestions: suggestions}} =
+        Elex.autocomplete("1 + (2 * f", 10, context)
+      # suggestions include %{kind: :keyword, text: "false"},
+      # %{kind: :function, text: "floor", ...}, and %{kind: :variable, text: "foo"}
+      # (sorted by text)
+
+  """
+  @spec autocomplete(String.t(), integer(), Context.t()) ::
+          {:ok, %{range: {non_neg_integer(), non_neg_integer()}, suggestions: [map()]}}
+          | {:error, String.t()}
+  @spec autocomplete(String.t(), integer(), Context.t(), keyword()) ::
+          {:ok, %{range: {non_neg_integer(), non_neg_integer()}, suggestions: [map()]}}
+          | {:error, String.t()}
+  def autocomplete(expression, cursor, context, opts \\ [])
+
+  def autocomplete(expression, cursor, %Context{} = context, opts)
+      when is_binary(expression) and is_list(opts) do
+    empty_prefix = autocomplete_opts!(opts)
+    Elex.Autocomplete.complete(expression, cursor, context, empty_prefix)
   end
 
   @doc """

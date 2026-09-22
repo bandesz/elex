@@ -37,7 +37,8 @@ defmodule Elex.MixProject do
             Elex.Parser,
             Elex.Evaluator,
             Elex.Validator,
-            Elex.Parser.ErrorFormatter
+            Elex.Parser.ErrorFormatter,
+            Elex.Autocomplete
           ],
           Units: [
             Elex.Quantity,

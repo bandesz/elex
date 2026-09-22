@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Elex.autocomplete/4` — completions at a 0-based UTF-8 byte offset for
+  incomplete expressions (`1 + (2 * f` → `foo`). Option `empty_prefix:
+  :none` (default) or `:all`. Result is `%{range: {start, end},
+  suggestions: [...]}` with kinds `:variable | :unit | :function | :keyword`
+
 ## [0.3.2] - 2026-09-18
 
 ### Added

@@ -126,6 +126,42 @@ Pass a context so unit suffixes parse when a catalog is attached:
 This is useful for building UIs that prompt users to supply values for every
 referenced name.
 
+## Completing identifiers
+
+Host UIs can call `Elex.autocomplete/4` while the user is still typing. The
+cursor is a 0-based UTF-8 byte offset. The call works on incomplete input
+(`1 + (2 * f` still completes `foo`, along with other `f` matches such as
+`false` and `floor`):
+
+```elixir
+context = Elex.new_context() |> Elex.add_variable!("foo", 1)
+
+{:ok, result} = Elex.autocomplete("1 + (2 * f", 10, context)
+# result.range => {9, 10}
+# result.suggestions includes %{kind: :keyword, text: "false"},
+# %{kind: :function, text: "floor", ...}, and %{kind: :variable, text: "foo"}
+# (sorted by text)
+```
+
+`:range` is the token under the cursor (exclusive end). Apply a suggestion by
+replacing that byte range. Suggestion kinds are `:variable`, `:unit`,
+`:function`, and `:keyword`.
+
+By default `empty_prefix: :none` returns no suggestions when the prefix is
+empty (`1 + |` → `[]`). Pass `empty_prefix: :all` to list every candidate that
+is legal in the current slot:
+
+```elixir
+Elex.autocomplete("1 + ", 4, context)
+#=> {:ok, %{range: {4, 4}, suggestions: []}}
+
+Elex.autocomplete("1 + ", 4, context, empty_prefix: :all)
+#=> {:ok, %{range: {4, 4}, suggestions: [..., %{kind: :variable, text: "foo"}, ...]}}
+```
+
+See [Advanced Topics](advanced.md) for suggestion maps, replacement of the
+whole token, and invalid-cursor errors.
+
 ## Handling errors
 
 Parse, validation, and evaluation errors all come back as `{:error, reason}`
@@ -152,7 +188,7 @@ the parser grammar.
 - [Functions](functions.md) — built-in math and string functions
 - [Units](units.md) — optional unit catalogs, quantities, and `convert/2`
 - [Ash Integration](ash-integration.md) — validating expressions on Ash resources
-- [Advanced Topics](advanced.md) — AST format, expression inversion, and custom
-  functions
+- [Advanced Topics](advanced.md) — AST format, expression inversion, autocomplete
+  details, and custom functions
 
 For the full API reference, see the `Elex` module documentation.

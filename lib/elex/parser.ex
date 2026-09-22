@@ -45,6 +45,7 @@ defmodule Elex.Parser do
   """
   import NimbleParsec
 
+  alias Elex.CharClass
   alias Elex.Context
   alias Elex.Parser.ErrorFormatter
   alias Elex.Parser.StringEscape
@@ -59,8 +60,8 @@ defmodule Elex.Parser do
   @default_max_depth 16
   @reserved_words ~w(and or not null true false yes no)
 
-  ws = repeat(ascii_char([?\s, ?\t])) |> label("whitespace")
-  ws_req = times(ascii_char([?\s, ?\t]), min: 1) |> label("whitespace")
+  ws = repeat(ascii_char(CharClass.whitespace_chars())) |> label("whitespace")
+  ws_req = times(ascii_char(CharClass.whitespace_chars()), min: 1) |> label("whitespace")
 
   literal_boolean =
     choice([
@@ -69,24 +70,24 @@ defmodule Elex.Parser do
       string("true") |> replace(true),
       string("yes") |> replace(true)
     ])
-    |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
+    |> lookahead_not(ascii_char(CharClass.ident_continue_chars()))
     |> label("boolean")
 
   literal_null =
     string("null")
-    |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
+    |> lookahead_not(ascii_char(CharClass.ident_continue_chars()))
     |> replace(nil)
     |> label("null")
 
   scientific_exponent =
     ascii_char([?e, ?E])
     |> optional(ascii_char([?+, ?-]))
-    |> ascii_string([?0..?9], min: 1)
+    |> ascii_string(CharClass.digit_chars(), min: 1)
 
   literal_decimal =
     optional(string("-"))
-    |> concat(ascii_string([?0..?9], min: 1))
-    |> optional(concat(ascii_char([?.]), ascii_string([?0..?9], min: 1)))
+    |> concat(ascii_string(CharClass.digit_chars(), min: 1))
+    |> optional(concat(ascii_char([?.]), ascii_string(CharClass.digit_chars(), min: 1)))
     |> optional(scientific_exponent)
     |> reduce(:to_decimal)
     |> label("number")
@@ -287,33 +288,55 @@ defmodule Elex.Parser do
     end
   end
 
-  defp skip_parser_ws(<<c, rest::binary>>) when c in [?\s, ?\t], do: skip_parser_ws(rest)
+  defp skip_parser_ws(<<c, rest::binary>> = binary) do
+    if CharClass.whitespace?(c) do
+      skip_parser_ws(rest)
+    else
+      binary
+    end
+  end
+
   defp skip_parser_ws(rest), do: rest
 
   # Unit symbols allow A-Z (N, F, m2). Variable identifiers stay a-z only.
-  defp take_unit_symbol(<<c, rest::binary>>) when c in ?A..?Z or c in ?a..?z do
-    take_unit_symbol(rest, <<c>>)
+  defp take_unit_symbol(<<c, rest::binary>>) do
+    if CharClass.unit_start?(c) do
+      take_unit_symbol(rest, <<c>>)
+    else
+      nil
+    end
   end
 
   defp take_unit_symbol(_rest), do: nil
 
-  defp take_unit_symbol(<<c, rest::binary>>, acc)
-       when c in ?A..?Z or c in ?a..?z or c in ?0..?9 or c == ?_ do
-    take_unit_symbol(rest, <<acc::binary, c>>)
+  defp take_unit_symbol(<<c, rest::binary>> = binary, acc) do
+    if CharClass.unit_continue?(c) do
+      take_unit_symbol(rest, <<acc::binary, c>>)
+    else
+      {acc, binary}
+    end
   end
 
   defp take_unit_symbol(rest, acc), do: {acc, rest}
 
   # Power suffix: `^` with no surrounding spaces, then an integer (including 0
   # so `m^0` is an invalid formula rather than unexpected '^').
-  defp take_power_exponent(<<?^, digit, rest::binary>>) when digit in ?0..?9 do
-    take_digits(rest, <<digit>>)
+  defp take_power_exponent(<<?^, digit, rest::binary>>) do
+    if CharClass.digit?(digit) do
+      take_digits(rest, <<digit>>)
+    else
+      nil
+    end
   end
 
   defp take_power_exponent(_rest), do: nil
 
-  defp take_digits(<<c, rest::binary>>, acc) when c in ?0..?9 do
-    take_digits(rest, <<acc::binary, c>>)
+  defp take_digits(<<c, rest::binary>> = binary, acc) do
+    if CharClass.digit?(c) do
+      take_digits(rest, <<acc::binary, c>>)
+    else
+      {acc, binary}
+    end
   end
 
   defp take_digits(rest, acc), do: {acc, rest}
@@ -347,8 +370,8 @@ defmodule Elex.Parser do
     |> label("string")
 
   identifier =
-    ascii_char([?a..?z])
-    |> repeat(ascii_char([?a..?z, ?0..?9, ?_]))
+    ascii_char(CharClass.ident_start_chars())
+    |> repeat(ascii_char(CharClass.ident_continue_chars()))
     |> reduce({List, :to_string, []})
     |> label("identifier")
 
@@ -418,7 +441,7 @@ defmodule Elex.Parser do
     :expr_not,
     choice([
       string("not")
-      |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
+      |> lookahead_not(ascii_char(CharClass.ident_continue_chars()))
       |> ignore(ws_req)
       |> concat(parsec(:expr_not))
       |> reduce(:unary_op),
@@ -494,7 +517,7 @@ defmodule Elex.Parser do
     |> repeat(
       ignore(ws_req)
       |> string("and")
-      |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
+      |> lookahead_not(ascii_char(CharClass.ident_continue_chars()))
       |> ignore(ws_req)
       |> concat(parsec(:expr_cmp))
     )
@@ -507,7 +530,7 @@ defmodule Elex.Parser do
     |> repeat(
       ignore(ws_req)
       |> string("or")
-      |> lookahead_not(ascii_char([?a..?z, ?0..?9, ?_]))
+      |> lookahead_not(ascii_char(CharClass.ident_continue_chars()))
       |> ignore(ws_req)
       |> concat(parsec(:expr_and))
     )

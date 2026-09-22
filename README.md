@@ -27,6 +27,7 @@ Full guides are available on [hexdocs.pm](https://hexdocs.pm/elex):
 - **Decimal Precision**: Uses `Decimal` for accurate arithmetic
 - **Expression Inversion**: Solve for variables in simple expressions
 - **Units**: Optional caller-registered catalogs (quantities, conversion, dimensional validate)
+- **Autocomplete**: Completions at a cursor byte offset for incomplete expressions (`Elex.autocomplete/4`)
 - **Ash Integration**: Optional Ash validation for resource attributes
 
 ## Installation
