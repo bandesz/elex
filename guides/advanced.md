@@ -1,7 +1,7 @@
 # Advanced Topics
 
 This guide covers lower-level APIs for applications that need direct access to
-the parse tree, expression inversion, or custom functions.
+the parse tree, expression inversion, autocomplete details, or custom functions.
 
 ## The parse → validate → evaluate pipeline
 
@@ -62,6 +62,31 @@ Example AST for `max(x, 10) + 1`:
   #Decimal<1>
 ]}
 ```
+
+## Autocomplete
+
+`Elex.autocomplete/4` completes identifiers at a 0-based UTF-8 byte offset,
+including incomplete input. [Getting Started](getting-started.md) shows the
+basic call (`1 + (2 * f` → `foo`, range `{9, 10}`). Hosts replace the
+returned `:range` with a suggestion's `:text`.
+
+Suggestion maps:
+
+| Kind | Fields |
+|------|--------|
+| `:variable` | `:text` |
+| `:keyword` | `:text` (`true`/`false`/`yes`/`no`/`null`/`not`/`and`/`or`) |
+| `:unit` | `:text` (registered name or alias that matched) |
+| `:function` | `:text` (name only, no `(`), `:signature`, `:description`, optional `:category` |
+
+The prefix is the bytes from the token start up to the cursor. Mid-token
+`fo|obar` still replaces the whole token (`range` covers `foobar`). With
+`empty_prefix: :none` (default), an empty prefix returns no suggestions;
+`:all` dumps every candidate legal in the current slot.
+
+The cursor must be an integer on a UTF-8 boundary in
+`0..byte_size(expression)`; otherwise `{:error, "cursor is out of range"}`.
+Unknown opts or an invalid `empty_prefix` raise `ArgumentError`.
 
 ## Parser debugging
 
@@ -280,6 +305,7 @@ function in your application to integrate with Gettext for localization.
 
 ## Further reading
 
+- `Elex.autocomplete/4` — identifier completions at a cursor byte offset
 - `Elex.Parser` — parse options including `:max_depth`
 - `Elex.Validator` — direct AST validation
 - `Elex.Evaluator` — direct AST evaluation
