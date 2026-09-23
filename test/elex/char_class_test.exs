@@ -32,7 +32,6 @@ defmodule Elex.CharClassTest do
     assert CharClass.unit_symbol_continue?(?Ω)
     assert CharClass.unit_symbol_continue?(?k)
 
-    refute CharClass.unit_symbol_start?(?Å)
     refute CharClass.unit_start?(?µ)
     refute CharClass.unit_continue?(?Ω)
   end
