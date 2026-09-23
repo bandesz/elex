@@ -285,6 +285,38 @@ defmodule Elex.Units.CatalogTest do
       assert {:error, _} = Catalog.add_unit(catalog, :temperature, "C", "value", aliases: ["C°"])
     end
 
+    test "accepts micro and ohm names" do
+      {:ok, catalog} =
+        Catalog.add_category(Catalog.new(), :resistance, default: "Ω", additive: false)
+
+      assert {:ok, catalog} = Catalog.add_unit(catalog, :resistance, "Ω", "value")
+      assert {:ok, catalog} = Catalog.add_unit(catalog, :resistance, "kΩ", "value * 1000")
+      assert {:ok, catalog} = Catalog.add_unit(catalog, :resistance, "µΩ", "value / 1000000")
+
+      assert {:ok, catalog} =
+               Catalog.add_unit(catalog, :resistance, "ohm", "value", aliases: ["Ω"])
+
+      assert Map.has_key?(catalog.categories[:resistance].units, "kΩ")
+      assert "Ω" in catalog.categories[:resistance].units["ohm"].aliases
+    end
+
+    test "accepts a greek mu prefix and rejects micro after the first character" do
+      {:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
+
+      assert {:ok, catalog} = Catalog.add_unit(catalog, :length, "μm", "value / 1000000")
+      assert Map.has_key?(catalog.categories[:length].units, "μm")
+
+      assert {:error, message} = Catalog.add_unit(catalog, :length, "mµ", "value")
+      assert message =~ "mµ"
+    end
+
+    test "rejects an angstrom name" do
+      {:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
+
+      assert {:error, message} = Catalog.add_unit(catalog, :length, "Å", "value")
+      assert message =~ "Å"
+    end
+
     test "rejects a masculine ordinal lookalike of the degree sign" do
       {:ok, catalog} =
         Catalog.add_category(Catalog.new(), :temperature, default: "C", additive: false)

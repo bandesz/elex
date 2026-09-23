@@ -17,6 +17,8 @@ defmodule Elex.Units.Formula do
   and do not invoke this module directly.
   """
 
+  alias Elex.CharClass
+
   @type monomial :: %{optional(String.t()) => integer()}
 
   @spec parse(String.t()) :: {:ok, monomial()} | {:error, String.t()}
@@ -74,9 +76,13 @@ defmodule Elex.Units.Formula do
   defp read_tokens([?- | rest], acc), do: read_tokens(rest, [:minus | acc])
 
   defp read_tokens([char | rest], acc)
-       when char == ?° or char in ?A..?Z or char in ?a..?z do
-    {ident, rest} = read_ident(rest, [char])
-    read_tokens(rest, [{:ident, ident} | acc])
+       when char > 127 or char in ?A..?Z or char in ?a..?z do
+    if CharClass.unit_symbol_start?(char) do
+      {ident, rest} = read_ident(rest, [char])
+      read_tokens(rest, [{:ident, ident} | acc])
+    else
+      {:error, "invalid formula"}
+    end
   end
 
   defp read_tokens([?0, digit | _rest], _acc) when digit in ?0..?9 do
@@ -90,12 +96,17 @@ defmodule Elex.Units.Formula do
 
   defp read_tokens(_chars, _acc), do: {:error, "invalid formula"}
 
-  defp read_ident([char | rest], acc)
-       when char in ?A..?Z or char in ?a..?z or char in ?0..?9 or char == ?_ do
-    read_ident(rest, [char | acc])
+  defp read_ident([char | rest], acc) do
+    if CharClass.unit_symbol_continue?(char) do
+      read_ident(rest, [char | acc])
+    else
+      finish_ident([char | rest], acc)
+    end
   end
 
-  defp read_ident(rest, acc) do
+  defp read_ident(rest, acc), do: finish_ident(rest, acc)
+
+  defp finish_ident(rest, acc) do
     {acc |> Enum.reverse() |> List.to_string(), rest}
   end
 

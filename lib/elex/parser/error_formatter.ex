@@ -17,6 +17,7 @@ defmodule Elex.Parser.ErrorFormatter do
   @word_operators ~w(and or)
   @reserved_operators ~w(and or not)
 
+  alias Elex.CharClass
   alias Elex.Parser.StringEscape
 
   @doc """
@@ -218,25 +219,36 @@ defmodule Elex.Parser.ErrorFormatter do
     Enum.find(@two_char_operators ++ @one_char_operators, &String.starts_with?(remainder, &1))
   end
 
-  defp first_token("°" <> rest), do: "°" <> take_while(rest, &identifier_char?/1)
-
-  defp first_token(<<char::utf8, _::binary>>) when char in [?(, ?), ?,], do: <<char::utf8>>
-
-  defp first_token(remainder) do
+  defp first_token(<<char::utf8, rest::binary>> = remainder) do
     cond do
-      starts_with_class?(remainder, &letter_or_underscore?/1) ->
+      char in [?(, ?), ?,] ->
+        <<char::utf8>>
+
+      CharClass.unit_symbol_start?(char) ->
+        <<char::utf8>> <> take_symbol_continue(rest)
+
+      letter_or_underscore?(char) ->
         take_while(remainder, &identifier_char?/1)
 
-      starts_with_class?(remainder, &digit?/1) ->
-        take_while(remainder, fn char -> digit?(char) or char == ?. end)
+      digit?(char) ->
+        take_while(remainder, fn next -> digit?(next) or next == ?. end)
 
       true ->
         take_while(remainder, &symbol_char?/1)
     end
   end
 
-  defp starts_with_class?(<<char::utf8, _::binary>>, predicate), do: predicate.(char)
-  defp starts_with_class?(_, _), do: false
+  defp first_token(_remainder), do: ""
+
+  defp take_symbol_continue(<<char::utf8, rest::binary>>) do
+    if CharClass.unit_symbol_continue?(char) do
+      <<char::utf8>> <> take_symbol_continue(rest)
+    else
+      ""
+    end
+  end
+
+  defp take_symbol_continue(_rest), do: ""
 
   defp take_while(string, predicate) do
     string

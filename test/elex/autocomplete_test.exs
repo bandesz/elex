@@ -240,6 +240,40 @@ defmodule Elex.AutocompleteTest do
       assert %{kind: :unit, text: "metre"} in suggestions
     end
 
+    test "suggests micro and ohm units glued to a number", %{ctx: ctx} do
+      catalog =
+        Catalog.new()
+        |> Catalog.add_category!(:resistance, default: "Ω")
+        |> Catalog.add_unit!(:resistance, "Ω")
+        |> Catalog.add_unit!(:resistance, "kΩ", "value * 1000")
+        |> Catalog.add_unit!(:resistance, "µΩ", "value / 1000000")
+
+      ctx = Context.put_units!(ctx, catalog)
+
+      ohm_cursor = byte_size("10Ω")
+
+      assert {:ok, %{range: {2, ^ohm_cursor}, suggestions: ohm_suggestions}} =
+               Elex.autocomplete("10Ω", ohm_cursor, ctx)
+
+      assert %{kind: :unit, text: "Ω"} in ohm_suggestions
+      refute %{kind: :unit, text: "kΩ"} in ohm_suggestions
+
+      micro_cursor = byte_size("10µ")
+
+      assert {:ok, %{range: {2, ^micro_cursor}, suggestions: micro_suggestions}} =
+               Elex.autocomplete("10µ", micro_cursor, ctx)
+
+      assert %{kind: :unit, text: "µΩ"} in micro_suggestions
+
+      kilo_cursor = byte_size("10kΩ")
+
+      assert {:ok, %{range: {2, ^kilo_cursor}, suggestions: kilo_suggestions}} =
+               Elex.autocomplete("10kΩ", kilo_cursor, ctx)
+
+      assert %{kind: :unit, text: "kΩ"} in kilo_suggestions
+      refute %{kind: :unit, text: "Ω"} in kilo_suggestions
+    end
+
     test "suggests a degree-sign unit glued to a number", %{ctx: ctx} do
       catalog =
         Catalog.new()

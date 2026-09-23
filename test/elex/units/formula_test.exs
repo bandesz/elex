@@ -10,6 +10,18 @@ defmodule Elex.Units.FormulaTest do
       assert Formula.parse("m | s^2") == {:ok, %{"m" => 1, "s" => -2}}
     end
 
+    test "parses micro and ohm symbols" do
+      assert Formula.parse("µm") == {:ok, %{"µm" => 1}}
+      assert Formula.parse("μs") == {:ok, %{"μs" => 1}}
+      assert Formula.parse("kΩ") == {:ok, %{"kΩ" => 1}}
+      assert Formula.parse("µΩ") == {:ok, %{"µΩ" => 1}}
+      assert Formula.parse("Ω") == {:ok, %{"Ω" => 1}}
+    end
+
+    test "does not fold a trailing micro sign into the previous symbol" do
+      assert Formula.parse("mµ") == {:ok, %{"m" => 1, "µ" => 1}}
+    end
+
     test "parses a symbol that starts with a degree sign" do
       assert Formula.parse("°C") == {:ok, %{"°C" => 1}}
       assert Formula.parse("°") == {:ok, %{"°" => 1}}

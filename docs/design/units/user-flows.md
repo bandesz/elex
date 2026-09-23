@@ -30,7 +30,7 @@ Canonical behaviour for unit support. Actor is always a **library caller**. Cata
 **Error paths:**
 
 - Unit name is a reserved word → registration error
-- Name does not start with a letter or `°` → registration error
+- Name does not start with a letter, `°`, a micro sign, or ohm → registration error
 - Second category with the same dimension as an existing one → registration error
 - Derived category with no base-hub identity unit (`:area` with only `m2` / `ha`) → `put_units` error
 

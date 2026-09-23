@@ -24,6 +24,11 @@ defmodule Elex.Units.DisabledTest do
       assert Elex.evaluate("1°C", ctx) == {:error, "unexpected '°C'"}
     end
 
+    test "rejects micro and ohm suffixes as one unexpected token", %{ctx: ctx} do
+      assert Elex.evaluate("1µm", ctx) == {:error, "unexpected 'µm'"}
+      assert Elex.evaluate("1kΩ", ctx) == {:error, "unexpected 'kΩ'"}
+    end
+
     test "rejects a spaced unit-like token as unexpected", %{ctx: ctx} do
       assert Elex.evaluate("1 cm", ctx) == {:error, "unexpected 'cm'"}
     end
