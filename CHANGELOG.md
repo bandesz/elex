@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-23
+
 ### Added
 
 - Unit names and aliases may start with `°` (U+00B0), `µ` (U+00B5), `μ` (U+03BC), or ohm (`Ω` U+03A9, `Ω` U+2126). Ohm may also continue a name (`kΩ`, `µΩ`). A catalog can register `°C`, `°F`, `µm`, and `kΩ`
@@ -149,6 +151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.3.4]: https://github.com/bandesz/elex/releases/tag/v0.3.4
 [0.3.3]: https://github.com/bandesz/elex/releases/tag/v0.3.3
 [0.3.2]: https://github.com/bandesz/elex/releases/tag/v0.3.2
 [0.3.1]: https://github.com/bandesz/elex/releases/tag/v0.3.1
