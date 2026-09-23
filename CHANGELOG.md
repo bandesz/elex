@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Unit names and aliases may start with `°` (U+00B0), so a catalog can
+  register `°C`, `°F`, and `°`
+
 ## [0.3.3] - 2026-09-22
 
 ### Added

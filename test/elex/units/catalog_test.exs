@@ -258,6 +258,41 @@ defmodule Elex.Units.CatalogTest do
       assert {:error, _} = Catalog.add_unit(catalog, :length, "_mm", "value")
     end
 
+    test "accepts a name that starts with a degree sign" do
+      {:ok, catalog} =
+        Catalog.add_category(Catalog.new(), :temperature, default: "°C", additive: false)
+
+      assert {:ok, catalog} = Catalog.add_unit(catalog, :temperature, "°C", "value")
+
+      assert {:ok, catalog} =
+               Catalog.add_unit(catalog, :temperature, "°F", "(value - 32) * 5 / 9")
+
+      assert {:ok, catalog} =
+               Catalog.add_unit(catalog, :temperature, "degC", "value", aliases: ["°"])
+
+      assert Map.has_key?(catalog.categories[:temperature].units, "°C")
+      assert Map.has_key?(catalog.categories[:temperature].units, "°F")
+      assert "°" in catalog.categories[:temperature].units["degC"].aliases
+    end
+
+    test "rejects a degree sign after the first character" do
+      {:ok, catalog} =
+        Catalog.add_category(Catalog.new(), :temperature, default: "C", additive: false)
+
+      assert {:error, message} = Catalog.add_unit(catalog, :temperature, "C°", "value")
+      assert message =~ "C°"
+      assert {:error, _} = Catalog.add_unit(catalog, :temperature, "m°", "value")
+      assert {:error, _} = Catalog.add_unit(catalog, :temperature, "C", "value", aliases: ["C°"])
+    end
+
+    test "rejects a masculine ordinal lookalike of the degree sign" do
+      {:ok, catalog} =
+        Catalog.add_category(Catalog.new(), :temperature, default: "C", additive: false)
+
+      assert {:error, message} = Catalog.add_unit(catalog, :temperature, "ºC", "value")
+      assert message =~ "ºC"
+    end
+
     test "rejects a name with characters other than letters, digits, and underscore" do
       {:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
 

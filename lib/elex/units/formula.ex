@@ -73,7 +73,8 @@ defmodule Elex.Units.Formula do
   defp read_tokens([?^ | rest], acc), do: read_tokens(rest, [:pow | acc])
   defp read_tokens([?- | rest], acc), do: read_tokens(rest, [:minus | acc])
 
-  defp read_tokens([char | rest], acc) when char in ?A..?Z or char in ?a..?z do
+  defp read_tokens([char | rest], acc)
+       when char == ?° or char in ?A..?Z or char in ?a..?z do
     {ident, rest} = read_ident(rest, [char])
     read_tokens(rest, [{:ident, ident} | acc])
   end

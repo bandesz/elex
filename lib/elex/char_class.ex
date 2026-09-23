@@ -7,6 +7,10 @@ defmodule Elex.CharClass do
   @unit_continue [?A..?Z, ?a..?z, ?0..?9, ?_]
   @digit [?0..?9]
   @whitespace [?\s, ?\t]
+  # U+00B0 DEGREE SIGN. A start character only (`°C`), not a continuation (`C°`).
+  # Not in `@unit_start`: that list is ASCII bytes for NimbleParsec, and the
+  # UTF-8 encoding of ° is <<0xC2, 0xB0>>, not the bare codepoint.
+  @degree_sign 0x00B0
 
   def ident_start_chars, do: @ident_start
   def ident_continue_chars, do: @ident_continue
@@ -18,6 +22,11 @@ defmodule Elex.CharClass do
   def ident_start?(byte) when is_integer(byte), do: byte_in?(@ident_start, byte)
   def ident_continue?(byte) when is_integer(byte), do: byte_in?(@ident_continue, byte)
   def unit_start?(byte) when is_integer(byte), do: byte_in?(@unit_start, byte)
+
+  def unit_symbol_start?(codepoint) when is_integer(codepoint) do
+    unit_start?(codepoint) or codepoint == @degree_sign
+  end
+
   def unit_continue?(byte) when is_integer(byte), do: byte_in?(@unit_continue, byte)
   def digit?(byte) when is_integer(byte), do: byte_in?(@digit, byte)
   def whitespace?(byte) when is_integer(byte), do: byte_in?(@whitespace, byte)

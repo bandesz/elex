@@ -240,6 +240,23 @@ defmodule Elex.AutocompleteTest do
       assert %{kind: :unit, text: "metre"} in suggestions
     end
 
+    test "suggests a degree-sign unit glued to a number", %{ctx: ctx} do
+      catalog =
+        Catalog.new()
+        |> Catalog.add_category!(:temperature, default: "°C", additive: false)
+        |> Catalog.add_unit!(:temperature, "°C")
+        |> Catalog.add_unit!(:temperature, "°F", "(value - 32) * 5 / 9")
+
+      ctx = Context.put_units!(ctx, catalog)
+      cursor = byte_size("32°")
+
+      assert {:ok, %{range: {2, ^cursor}, suggestions: suggestions}} =
+               Elex.autocomplete("32°", cursor, ctx)
+
+      assert %{kind: :unit, text: "°C"} in suggestions
+      assert %{kind: :unit, text: "°F"} in suggestions
+    end
+
     test "suggests an uppercase catalog unit glued to a number", %{ctx: ctx} do
       ctx = with_force_catalog(ctx)
 

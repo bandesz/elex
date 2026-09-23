@@ -298,10 +298,11 @@ defmodule Elex.Parser do
 
   defp skip_parser_ws(rest), do: rest
 
-  # Unit symbols allow A-Z (N, F, m2). Variable identifiers stay a-z only.
-  defp take_unit_symbol(<<c, rest::binary>>) do
-    if CharClass.unit_start?(c) do
-      take_unit_symbol(rest, <<c>>)
+  # Unit symbols allow A-Z (N, F, m2) and a leading degree sign (°C).
+  # Variable identifiers stay a-z only. Scan codepoints: ° is two UTF-8 bytes.
+  defp take_unit_symbol(<<c::utf8, rest::binary>>) do
+    if CharClass.unit_symbol_start?(c) do
+      take_unit_symbol(rest, <<c::utf8>>)
     else
       nil
     end
@@ -309,9 +310,9 @@ defmodule Elex.Parser do
 
   defp take_unit_symbol(_rest), do: nil
 
-  defp take_unit_symbol(<<c, rest::binary>> = binary, acc) do
+  defp take_unit_symbol(<<c::utf8, rest::binary>> = binary, acc) do
     if CharClass.unit_continue?(c) do
-      take_unit_symbol(rest, <<acc::binary, c>>)
+      take_unit_symbol(rest, <<acc::binary, c::utf8>>)
     else
       {acc, binary}
     end

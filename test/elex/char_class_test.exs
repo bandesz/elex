@@ -12,6 +12,13 @@ defmodule Elex.CharClassTest do
     assert CharClass.whitespace_chars() == [?\s, ?\t]
   end
 
+  test "degree sign is a unit-symbol start codepoint and not a byte-class member" do
+    assert CharClass.unit_symbol_start?(?°)
+    refute CharClass.unit_start?(?°)
+    refute CharClass.unit_continue?(?°)
+    refute CharClass.unit_symbol_start?(?º)
+  end
+
   test "predicates match char list membership for every byte 0..255" do
     classes = [
       {CharClass.ident_start_chars(), &CharClass.ident_start?/1},

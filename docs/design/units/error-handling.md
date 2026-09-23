@@ -4,7 +4,7 @@ Public APIs remain `{:ok, _} | {:error, String.t()}`. Registration errors occur 
 
 ## Registration
 
-- Unit name: must start with a letter; letters, digits, underscore only. Derived categories also allow formula-shaped names (`m^2`, `m | s`)
+- Unit name: must start with a letter or `°` (U+00B0); the rest is letters, digits, underscore only. `°` is not valid after the first character (`C°`). Derived categories also allow formula-shaped names (`m^2`, `m | s`)
 - Reserved words: `and`, `or`, `not`, `null`, `true`, `false`, `yes`, `no`, `e`, `E`
 - Duplicate unit name in the catalog
 - Duplicate **alias** (alias collides with a unit name or another alias)
