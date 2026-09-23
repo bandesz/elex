@@ -37,8 +37,10 @@ name (`add_unit(catalog, :area, "m^2", aliases: ["m2", "sqm"])`). The inverse
 is derived automatically. Offset conversions (`to_default(0) ≠ 0`) require
 `additive: false`.
 
-Unit symbols start with a letter and may contain letters, digits, and
-underscores (`mm`, `mps2`, `N`). Digits are part of a **canonical name**:
+Unit symbols start with a letter or a degree sign and may then contain
+letters, digits, and underscores (`mm`, `mps2`, `N`, `°C`, `°F`, `°`). The
+degree sign (`°`, U+00B0) is only valid as the first character, so `C°` is
+rejected. Digits are part of a **canonical name**:
 `s2` is not `s^2`, and a unit registered as `"m2"` stays `m2`. Register
 `"m^2"` with `aliases: ["m2", "sqm"]` when you want `5 m2` and `5 sqm` to
 mean square metres. Derived categories also allow **formula-shaped** names

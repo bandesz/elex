@@ -218,6 +218,8 @@ defmodule Elex.Parser.ErrorFormatter do
     Enum.find(@two_char_operators ++ @one_char_operators, &String.starts_with?(remainder, &1))
   end
 
+  defp first_token("°" <> rest), do: "°" <> take_while(rest, &identifier_char?/1)
+
   defp first_token(<<char::utf8, _::binary>>) when char in [?(, ?), ?,], do: <<char::utf8>>
 
   defp first_token(remainder) do

@@ -20,6 +20,10 @@ defmodule Elex.Units.DisabledTest do
       assert Elex.evaluate("1cm", ctx) == {:error, "unexpected 'cm'"}
     end
 
+    test "rejects a degree-sign suffix as one unexpected token", %{ctx: ctx} do
+      assert Elex.evaluate("1°C", ctx) == {:error, "unexpected '°C'"}
+    end
+
     test "rejects a spaced unit-like token as unexpected", %{ctx: ctx} do
       assert Elex.evaluate("1 cm", ctx) == {:error, "unexpected 'cm'"}
     end

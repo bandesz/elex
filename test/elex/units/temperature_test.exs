@@ -14,6 +14,41 @@ defmodule Elex.Units.TemperatureTest do
     assert Temperature.catalog().categories[:temperature].additive == false
   end
 
+  test "converts 32°F to 0°C" do
+    catalog =
+      Catalog.new()
+      |> Catalog.add_category!(:temperature, default: "°C", additive: false)
+      |> Catalog.add_unit!(:temperature, "°C")
+      |> Catalog.add_unit!(:temperature, "°F", "(value - 32) * 5 / 9")
+
+    {:ok, ctx} = Context.put_units(Elex.new_context(), catalog)
+
+    assert {:ok, %Elex.Quantity{value: value, unit: unit}} =
+             Elex.evaluate("32°F", ctx, unit: "°C")
+
+    assert %Elex.Unit{monomial: %{"°C" => 1}} = unit
+    assert Decimal.equal?(value, Decimal.new("0"))
+
+    assert {:ok, %Elex.Quantity{value: spaced, unit: spaced_unit}} =
+             Elex.evaluate("32 °F", ctx, unit: "°C")
+
+    assert %Elex.Unit{monomial: %{"°C" => 1}} = spaced_unit
+    assert Decimal.equal?(spaced, Decimal.new("0"))
+  end
+
+  test "evaluates a lone degree symbol" do
+    catalog =
+      Catalog.new()
+      |> Catalog.add_category!(:angle, default: "°")
+      |> Catalog.add_unit!(:angle, "°")
+
+    {:ok, ctx} = Context.put_units(Elex.new_context(), catalog)
+
+    assert {:ok, %Elex.Quantity{value: value, unit: unit}} = Elex.evaluate("1°", ctx)
+    assert %Elex.Unit{monomial: %{"°" => 1}} = unit
+    assert Decimal.equal?(value, Decimal.new("1"))
+  end
+
   test "converts 32F to 0 C via unit:", %{ctx: ctx} do
     assert {:ok, %Elex.Quantity{value: value, unit: unit}} =
              Elex.evaluate("32F", ctx, unit: "C")
