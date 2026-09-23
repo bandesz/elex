@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-22
+
 ### Added
 
 - `Elex.autocomplete/4` — completions at a 0-based UTF-8 byte offset for
@@ -143,6 +145,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.3.3]: https://github.com/bandesz/elex/releases/tag/v0.3.3
 [0.3.2]: https://github.com/bandesz/elex/releases/tag/v0.3.2
 [0.3.1]: https://github.com/bandesz/elex/releases/tag/v0.3.1
 [0.3.0]: https://github.com/bandesz/elex/releases/tag/v0.3.0
