@@ -32,9 +32,13 @@ defmodule Elex.Units.Catalog do
   defstruct categories: %{}
 
   @reserved_words ~w(and or not null true false yes no e E)
-  # Degree sign (U+00B0) may start a name (`°C`, `°F`, `°`). It is not valid
-  # later in the name. º (U+00BA) is a different character and is rejected.
-  @unit_name_pattern ~r/^[A-Za-z°][A-Za-z0-9_]*$/u
+  # Start: letter, ° U+00B0, µ U+00B5, μ U+03BC, Ω U+03A9, Ω U+2126.
+  # Continue: letter, digit, underscore, and either ohm (`kΩ`, `µΩ`).
+  # ° and the micro signs are not valid after the first character.
+  @ohm_chars <<0x03A9::utf8, 0x2126::utf8>>
+  @unit_name_start "A-Za-z" <> <<0x00B0::utf8, 0x00B5::utf8, 0x03BC::utf8>> <> @ohm_chars
+  @unit_name_continue "A-Za-z0-9_" <> @ohm_chars
+  @unit_name_pattern ~r/^[#{@unit_name_start}][#{@unit_name_continue}]*$/u
 
   @type t :: %__MODULE__{
           categories: %{optional(atom()) => category()}
@@ -404,7 +408,7 @@ defmodule Elex.Units.Catalog do
   components are already registered must match their combined scale.
 
   `aliases:` are optional input-only symbol names for this canonical unit.
-  They must match `^[A-Za-z°][A-Za-z0-9_]*$` and be unique catalog-wide
+  They must match `^[A-Za-z°µμΩΩ][A-Za-z0-9_ΩΩ]*$` and be unique catalog-wide
   against unit names and other aliases. `default:` must be a canonical
   unit name, not an alias.
   """

@@ -71,24 +71,49 @@ defmodule Elex.Autocomplete do
   defp ident_start(_expression, 0), do: 0
 
   defp ident_start(expression, offset) do
-    prev = offset - 1
+    {codepoint, start} = previous_codepoint(expression, offset)
 
     cond do
-      ident_continue?(:binary.at(expression, prev)) ->
-        ident_start(expression, prev)
+      ident_continue_codepoint?(codepoint) ->
+        ident_start(expression, start)
 
-      degree_before?(expression, offset) ->
-        offset - byte_size("°")
+      start_only_symbol?(codepoint) ->
+        start
 
       true ->
         offset
     end
   end
 
-  defp degree_before?(expression, offset) do
-    size = byte_size("°")
-    offset >= size and binary_part(expression, offset - size, size) == "°"
+  defp start_only_symbol?(codepoint) do
+    CharClass.unit_symbol_start?(codepoint) and not CharClass.unit_symbol_continue?(codepoint)
   end
+
+  defp ident_continue_codepoint?(codepoint) do
+    CharClass.unit_symbol_continue?(codepoint) or codepoint == ?^
+  end
+
+  defp previous_codepoint(expression, offset) do
+    start = leading_byte_index(expression, offset - 1)
+
+    codepoint =
+      case expression do
+        <<_::binary-size(^start), cp::utf8, _::binary>> -> cp
+        <<_::binary-size(^start), cp::utf8>> -> cp
+      end
+
+    {codepoint, start}
+  end
+
+  defp leading_byte_index(expression, index) do
+    if index > 0 and continuation_byte?(:binary.at(expression, index)) do
+      leading_byte_index(expression, index - 1)
+    else
+      index
+    end
+  end
+
+  defp continuation_byte?(byte), do: Bitwise.band(byte, 0xC0) == 0x80
 
   defp unit_symbol_at?(expression, offset) do
     case expression do
@@ -106,14 +131,20 @@ defmodule Elex.Autocomplete do
   defp ident_end(_expression, offset, size) when offset >= size, do: size
 
   defp ident_end(expression, offset, size) do
-    cond do
-      degree_at?(expression, offset) ->
-        ident_end_continue(expression, offset + byte_size("°"), size)
+    case codepoint_at(expression, offset) do
+      {codepoint, next} ->
+        cond do
+          CharClass.unit_symbol_start?(codepoint) ->
+            ident_end_continue(expression, next, size)
 
-      ident_continue?(:binary.at(expression, offset)) ->
-        ident_end(expression, offset + 1, size)
+          ident_continue_codepoint?(codepoint) ->
+            ident_end(expression, next, size)
 
-      true ->
+          true ->
+            offset
+        end
+
+      :error ->
         offset
     end
   end
@@ -121,16 +152,29 @@ defmodule Elex.Autocomplete do
   defp ident_end_continue(_expression, offset, size) when offset >= size, do: size
 
   defp ident_end_continue(expression, offset, size) do
-    if ident_continue?(:binary.at(expression, offset)) do
-      ident_end_continue(expression, offset + 1, size)
-    else
-      offset
+    case codepoint_at(expression, offset) do
+      {codepoint, next} ->
+        if ident_continue_codepoint?(codepoint) do
+          ident_end_continue(expression, next, size)
+        else
+          offset
+        end
+
+      :error ->
+        offset
     end
   end
 
-  defp degree_at?(expression, offset) do
-    size = byte_size("°")
-    offset + size <= byte_size(expression) and binary_part(expression, offset, size) == "°"
+  defp codepoint_at(expression, offset) do
+    rest = binary_part(expression, offset, byte_size(expression) - offset)
+
+    case rest do
+      <<codepoint::utf8, _::binary>> ->
+        {codepoint, offset + byte_size(<<codepoint::utf8>>)}
+
+      _ ->
+        :error
+    end
   end
 
   defp skip_complete_number(expression, start, range_end) when start < range_end do
@@ -166,10 +210,6 @@ defmodule Elex.Autocomplete do
   end
 
   defp drop_complete_exponent(rest), do: rest
-
-  defp ident_continue?(byte) do
-    CharClass.unit_continue?(byte) or byte == ?^
-  end
 
   defp classify_slot(expression, range_start, context) do
     tokens = tokenize(binary_part(expression, 0, range_start))
@@ -378,7 +418,7 @@ defmodule Elex.Autocomplete do
   defp take_ident(binary), do: {<<>>, binary}
 
   defp take_ident_continue(<<c::utf8, rest::binary>> = binary, acc) do
-    if CharClass.unit_continue?(c) do
+    if CharClass.unit_symbol_continue?(c) do
       take_ident_continue(rest, acc <> <<c::utf8>>)
     else
       take_ident_power_or_stop(binary, acc)

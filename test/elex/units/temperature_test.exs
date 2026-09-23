@@ -36,6 +36,29 @@ defmodule Elex.Units.TemperatureTest do
     assert Decimal.equal?(spaced, Decimal.new("0"))
   end
 
+  test "evaluates micro and ohm suffixes" do
+    catalog =
+      Catalog.new()
+      |> Catalog.add_category!(:resistance, default: "Ω")
+      |> Catalog.add_unit!(:resistance, "Ω")
+      |> Catalog.add_unit!(:resistance, "kΩ", "value * 1000")
+      |> Catalog.add_unit!(:resistance, "µΩ", "value / 1000000")
+
+    {:ok, ctx} = Context.put_units(Elex.new_context(), catalog)
+
+    assert {:ok, %Elex.Quantity{value: value, unit: unit}} =
+             Elex.evaluate("1kΩ", ctx, unit: "Ω")
+
+    assert %Elex.Unit{monomial: %{"Ω" => 1}} = unit
+    assert Decimal.equal?(value, Decimal.new("1000"))
+
+    assert {:ok, %Elex.Quantity{value: micro, unit: micro_unit}} =
+             Elex.evaluate("1000000µΩ", ctx, unit: "Ω")
+
+    assert %Elex.Unit{monomial: %{"Ω" => 1}} = micro_unit
+    assert Decimal.equal?(micro, Decimal.new("1"))
+  end
+
   test "evaluates a lone degree symbol" do
     catalog =
       Catalog.new()

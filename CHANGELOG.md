@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Unit names and aliases may start with `°` (U+00B0), so a catalog can
-  register `°C`, `°F`, and `°`
+- Unit names and aliases may start with `°` (U+00B0), `µ` (U+00B5), `μ` (U+03BC), or ohm (`Ω` U+03A9, `Ω` U+2126). Ohm may also continue a name (`kΩ`, `µΩ`). A catalog can register `°C`, `°F`, `µm`, and `kΩ`
 
 ## [0.3.3] - 2026-09-22
 
