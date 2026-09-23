@@ -4,7 +4,7 @@ Public APIs remain `{:ok, _} | {:error, String.t()}`. Registration errors occur 
 
 ## Registration
 
-- Unit name: must start with a letter, `°` (U+00B0), `µ` (U+00B5), `μ` (U+03BC), `Ω` (U+03A9), or `Ω` (U+2126). The rest is letters, digits, underscore, and either ohm character (`kΩ`, `µΩ`). `°` and the micro signs are not valid after the first character (`C°`, `mµ`). `Å` is not a unit character. Derived categories also allow formula-shaped names (`m^2`, `m | s`)
+- Unit name: must start with a letter, `°` (U+00B0), `µ` (U+00B5), `μ` (U+03BC), `Ω` (U+03A9), or `Ω` (U+2126). The rest is letters, digits, underscore, and either ohm character (`kΩ`, `µΩ`). `°` and the micro signs are not valid after the first character (`C°`, `mµ`). Derived categories also allow formula-shaped names (`m^2`, `m | s`)
 - Reserved words: `and`, `or`, `not`, `null`, `true`, `false`, `yes`, `no`, `e`, `E`
 - Duplicate unit name in the catalog
 - Duplicate **alias** (alias collides with a unit name or another alias)

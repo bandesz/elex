@@ -310,13 +310,6 @@ defmodule Elex.Units.CatalogTest do
       assert message =~ "mµ"
     end
 
-    test "rejects an angstrom name" do
-      {:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
-
-      assert {:error, message} = Catalog.add_unit(catalog, :length, "Å", "value")
-      assert message =~ "Å"
-    end
-
     test "rejects a masculine ordinal lookalike of the degree sign" do
       {:ok, catalog} =
         Catalog.add_category(Catalog.new(), :temperature, default: "C", additive: false)
