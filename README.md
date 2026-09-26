@@ -17,7 +17,7 @@ Full guides are available on [hexdocs.pm](https://hexdocs.pm/elex):
 
 ## Features
 
-- **Arithmetic Operations**: `+`, `-`, `*`, `/`, `%` (remainder), unary `-`
+- **Arithmetic Operations**: `+`, `-`, `*`, `/`, unary `-`
 - **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=` (numbers, strings, and same-dimension quantities)
 - **Logical Operations**: `and`, `or`, `not` (with short-circuit evaluation)
 - **Literals**: Decimal numbers (including scientific notation), booleans (`true`/`false`, `yes`/`no`), strings, and `null`
@@ -112,13 +112,12 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate("10 - 5", context)   # => #Decimal<5>
 {:ok, result} = Elex.evaluate("10 * 5", context)   # => #Decimal<50>
 {:ok, result} = Elex.evaluate("10 / 5", context)   # => #Decimal<2>
-{:ok, result} = Elex.evaluate("10 % 3", context)   # => #Decimal<1>
 {:ok, result} = Elex.evaluate("2 + 3 * 4", context) # => #Decimal<14> (respects precedence)
 {:ok, result} = Elex.evaluate("-5", context)       # => #Decimal<-5> (unary minus)
 {:ok, result} = Elex.evaluate("-(1 + 2)", context) # => #Decimal<-3>
 ```
 
-> **Note:** `Elex.evaluate/2` returns `{:ok, result}` on success or `{:error, reason}` on failure. Arithmetic operations use `Decimal` and return `Decimal` values. The `%` operator has the same precedence as `*` and `/`.
+> **Note:** `Elex.evaluate/2` returns `{:ok, result}` on success or `{:error, reason}` on failure. Arithmetic operations use `Decimal` and return `Decimal` values. `*` and `/` have higher precedence than `+` and `-`.
 
 ### Comparisons
 
@@ -164,7 +163,7 @@ or same-dimension quantities when a catalog is attached).
 | `ceil(x)`, `floor(x)`, `round(x)` | Rounding |
 | `sqrt(x)` | Square root |
 | `pow(base, exp)` | Exponentiation |
-| `rem(a, b)` | Remainder (sign follows the dividend; same as `%`) |
+| `rem(a, b)` | Remainder (sign follows the dividend) |
 | `mod(a, b)` | Floored modulo (sign follows the divisor) |
 | `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers or same-category quantities (variadic) |
 | `clamp(x, min, max)` | Clamp `x` to an inclusive range |

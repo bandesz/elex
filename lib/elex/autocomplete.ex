@@ -12,7 +12,7 @@ defmodule Elex.Autocomplete do
   alias Elex.Function
   alias Elex.Units.Catalog
 
-  @after_operand_ops ~w{( , + - * / % < > <= >= == !=}
+  @after_operand_ops ~w{( , + - * / < > <= >= == !=}
   @after_operand_idents ~w(not and or)
   @operand_keywords ~w(true false yes no null not)
   @infix_keywords ~w(and or)
@@ -399,7 +399,7 @@ defmodule Elex.Autocomplete do
   end
 
   defp do_tokenize_other(<<c, rest::binary>>, acc)
-       when c in [?+, ?-, ?*, ?/, ?%, ?<, ?>, ?=, ?!, ?(, ?), ?,] do
+       when c in [?+, ?-, ?*, ?/, ?<, ?>, ?=, ?!, ?(, ?), ?,] do
     do_tokenize(rest, [{:op, <<c>>} | acc])
   end
 

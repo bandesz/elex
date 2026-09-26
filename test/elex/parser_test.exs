@@ -174,7 +174,7 @@ defmodule Elex.ParserTest do
     test "a value is missing after a trailing operator", %{ctx: ctx} do
       assert_message("1 +", "a value is missing after '+'", ctx)
       assert_message("1 *", "a value is missing after '*'", ctx)
-      assert_message("1 %", "a value is missing after '%'", ctx)
+      assert_message("1 %", "unexpected '%'", ctx)
       assert_message("1 < ", "a value is missing after '<'", ctx)
       assert_message("1 <= ", "a value is missing after '<='", ctx)
       assert_message("1 == == 2", "a value is missing after '=='", ctx)
@@ -186,7 +186,7 @@ defmodule Elex.ParserTest do
     test "an expression cannot start with an operator", %{ctx: ctx} do
       assert_message("+ 1", "an expression cannot start with '+'", ctx)
       assert_message("* 1", "an expression cannot start with '*'", ctx)
-      assert_message("% 1", "an expression cannot start with '%'", ctx)
+      assert_message("% 1", "unexpected '%'", ctx)
     end
 
     test "unexpected token or character", %{ctx: ctx} do

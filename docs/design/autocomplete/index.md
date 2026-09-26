@@ -56,7 +56,7 @@ Hosts need completions while the user is still typing. `Elex.Parser.parse/3` is 
 - Type-aware filtering and `expected_type:`
 - Formula-interior completions (`1 {kg * |`)
 - Inserting `(` or signature snippets
-- Completing operators `+ − * / % < > ==` and friends
+- Completing operators `+ − * / < > ==` and friends
 - Phoenix/LiveView UI in this repository
 - Ranking by usage or fuzzy / substring match
 

@@ -4,7 +4,7 @@ defmodule Elex do
 
   It supports:
 
-  - Arithmetic operations (`+`, `-`, `*`, `/`, `%`) and unary minus
+  - Arithmetic operations (`+`, `-`, `*`, `/`) and unary minus
   - Comparison operators (`<`, `>`, `<=`, `>=`, `==`, `!=`) for decimals,
     booleans, strings, `null`, same-dimension quantities, and a literal `0`
     next to an additive quantity

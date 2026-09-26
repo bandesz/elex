@@ -172,7 +172,7 @@ Canonical behaviour for unit support. Actor is always a **library caller**. Cata
 - `sqrt(1m * 1m)` / `sqrt(4mps2)` rejected (no dimensional sqrt)
 - `"1m > 5"` rejected
 - `if` branches different categories
-- `rem` / `mod` / `%` of units rejected
+- `rem` / `mod` of units rejected
 
 ## Flow 12: Derived-unit conversion by components
 

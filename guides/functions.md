@@ -17,7 +17,7 @@ functions in `Elex.evaluate/2`.
 | `round(x)` | Round to the nearest integer |
 | `sqrt(x)` | Square root |
 | `pow(base, exp)` | Exponentiation (`base` raised to `exp`) |
-| `rem(a, b)` | Remainder; sign follows the dividend (same as `%`) |
+| `rem(a, b)` | Remainder; sign follows the dividend |
 | `mod(a, b)` | Floored modulo; sign follows the divisor |
 | `max(a, b, …)` | Largest of two or more numbers or same-category quantities (variadic) |
 | `min(a, b, …)` | Smallest of two or more numbers or same-category quantities (variadic) |
@@ -29,21 +29,19 @@ functions in `Elex.evaluate/2`.
 | `pi()` | Mathematical constant π |
 | `if(cond, a, b)` | Conditional; short-circuits; both branches must share a type |
 
-### `rem` vs `mod` vs `%`
+### `rem` vs `mod`
 
-All three perform division-related operations on decimals, but they differ in
-how they handle signs:
+Both divide decimals, and they differ in how they handle signs:
 
 ```elixir
-# rem and % — sign follows the dividend
+# rem — sign follows the dividend
 Elex.evaluate("rem(-10, 3)", context)   # #Decimal<-1>
-Elex.evaluate("-10 % 3", context)       # #Decimal<-1>
 
 # mod — sign follows the divisor (floored modulo)
 Elex.evaluate("mod(-10, 3)", context)   # #Decimal<2>
 ```
 
-`rem`, `mod`, and `%` reject unitful arguments.
+`rem` and `mod` reject unitful arguments.
 
 ### `clamp` and `between`
 

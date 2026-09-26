@@ -103,7 +103,7 @@ an expression can be validated or evaluated.
 | 2 | `and` |
 | 3 | `==`, `!=`, `<`, `>`, `<=`, `>=` |
 | 4 | `+`, `-` (binary) |
-| 5 | `*`, `/`, `%` |
+| 5 | `*`, `/` |
 | 6 | `not` (unary) |
 | 7 | `-` (unary minus) |
 
@@ -119,9 +119,8 @@ for magnitude arithmetic. `*` and `/` scale a quantity by a number,
 or combine two quantities (same-category factors convert into the left unit
 first). Same-dimension division cancels to a decimal (`1m / 1m` → `1`;
 `1ha / 1 {m^2}` → `10000` when hectare is registered with a scale from
-square metres). `%` requires decimal operands (no quantities).
-The `%` operator is remainder (sign follows the dividend), same as `rem(a, b)`.
-For floored modulo, use the `mod(a, b)` function instead.
+square metres). Remainder is `rem(a, b)` (sign follows the dividend).
+For floored modulo, use `mod(a, b)`.
 
 ### Comparisons
 
