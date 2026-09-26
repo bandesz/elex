@@ -61,7 +61,7 @@ Parser suffix vs identifier: `test/elex/units/parser_test.exs`. Ash: `test/elex/
 - [x] Formula `^` integer exponents (Flow 7)
 - [x] `Unit.convertible?/3` same dim via catalog
 - [x] Quantity inspect is `%Elex.Unit{}` only
-- [x] `rem` / `mod` / `%` reject quantities (Flow 11)
+- [x] `rem` / `mod` reject quantities (Flow 11)
 - [x] Atomic digit names; `s2` is not `s^2` (Flows 5, 7)
 - [x] Inspect uses `^` (Flow 16)
 - [x] Inspect uses `|` (Flow 16)

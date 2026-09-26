@@ -525,10 +525,6 @@ defmodule Elex.Validator do
     validate_mul_div_op(:/, left_ast, right_ast, ctx)
   end
 
-  defp infer({:%, [left_ast, right_ast]}, ctx) do
-    validate_decimal_op(:%, left_ast, right_ast, ctx)
-  end
-
   defp infer({:<, [left_ast, right_ast]}, ctx) do
     validate_comparison_op(:<, left_ast, right_ast, ctx)
   end
@@ -635,32 +631,6 @@ defmodule Elex.Validator do
   defp join_with_or(list) when is_list(list) do
     {init, [last]} = Enum.split(list, -1)
     Enum.join(init, ", ") <> " or " <> to_string(last)
-  end
-
-  defp validate_decimal_op(op, a, b, ctx) do
-    case [infer(a, ctx), infer(b, ctx)] do
-      [{:ok, :decimal}, {:ok, :decimal}] ->
-        {:ok, :decimal}
-
-      [{:ok, type1}, {:ok, type2}] ->
-        {:error, remainder_type_error(op, type1, type2, ctx)}
-
-      [{:error, err}, _] ->
-        {:error, err}
-
-      [_, {:error, err}] ->
-        {:error, err}
-    end
-  end
-
-  defp remainder_type_error(op, type1, type2, ctx) do
-    unitful = Enum.find([type1, type2], &category_type?/1)
-
-    if unitful do
-      "'#{op}' operator expects number arguments, #{got(unitful)}"
-    else
-      "'#{op}' operator cannot be used on #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"
-    end
   end
 
   defp validate_function_call(function_module, name, args_ast, ctx) do

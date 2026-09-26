@@ -612,9 +612,9 @@ defmodule Elex.Units.FunctionsTest do
       assert message == "mod function expects number arguments, got length quantity"
     end
 
-    test "% of two quantities is an error", %{ctx: ctx} do
+    test "% of two quantities is an unexpected character", %{ctx: ctx} do
       assert {:error, message} = Elex.validate("1m % 2m", ctx)
-      assert message == "'%' operator expects number arguments, got length quantity"
+      assert message == "unexpected '%'"
     end
 
     test "rem of a quantity and a number is an error", %{ctx: ctx} do
@@ -622,9 +622,9 @@ defmodule Elex.Units.FunctionsTest do
       assert message == "rem function expects number arguments, got length quantity"
     end
 
-    test "% of a quantity and a number is an error", %{ctx: ctx} do
+    test "% of a quantity and a number is an unexpected character", %{ctx: ctx} do
       assert {:error, message} = Elex.validate("1m % 2", ctx)
-      assert message == "'%' operator expects number arguments, got length quantity"
+      assert message == "unexpected '%'"
     end
 
     test "evaluate rejects rem of quantities", %{ctx: ctx} do

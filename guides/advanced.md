@@ -48,7 +48,7 @@ The parser produces plain Erlang terms (tagged tuples). Common shapes:
 | `"string"` | String literal |
 | `nil` | Null literal |
 | `{:var, "name"}` | Variable reference |
-| `{op, [left, right]}` | Binary operator (`:+`, `:-`, `:*`, `:/`, `:%`, comparisons, `and`, `or`) |
+| `{op, [left, right]}` | Binary operator (`:+`, `:-`, `:*`, `:/`, comparisons, `and`, `or`) |
 | `{:not, operand}` | Logical not |
 | `{-, operand}` | Unary minus |
 | `{:unit, decimal, "mm"}` | Unit suffix on a numeric literal (`10mm`, `3 m\|s`, `1 {kg * m \| s}`) |

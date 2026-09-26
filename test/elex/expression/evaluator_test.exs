@@ -219,11 +219,10 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate("10.5 / (2 / 0.5)") == Decimal.new("2.625")
     end
 
-    test "evaluates modulo (%)" do
-      assert parse_and_evaluate("10 % 3") == Decimal.new("1")
-      assert parse_and_evaluate("10 % 3 % 2") == Decimal.new("1")
-      assert parse_and_evaluate("(10 % 3) % 2") == Decimal.new("1")
-      assert parse_and_evaluate("10 % (3 % 2)") == Decimal.new("0")
+    test "rejects % because it is not an operator" do
+      assert {:error, "unexpected '%'"} = Elex.evaluate("10 % 3", Elex.new_context())
+      assert {:error, "unexpected '%'"} = Elex.evaluate("1 %", Elex.new_context())
+      assert {:error, "unexpected '%'"} = Elex.evaluate("% 1", Elex.new_context())
     end
 
     test "evaluates a mix of multiplication and division" do
@@ -244,12 +243,6 @@ defmodule Elex.EvaluatorTest do
 
       assert parse_and_evaluate("2.4 / 2 - 3") == Decimal.new("-1.8")
       assert parse_and_evaluate("3 - 2.4 / 2") == Decimal.new("1.8")
-    end
-
-    test "% has precedence over +/-" do
-      assert parse_and_evaluate("10 + 3 % 2") == Decimal.new("11")
-      assert parse_and_evaluate("10 - 3 % 2") == Decimal.new("9")
-      assert parse_and_evaluate("3 % 2 + 10") == Decimal.new("11")
     end
 
     test "evaluates variable lookup" do
@@ -488,8 +481,6 @@ defmodule Elex.EvaluatorTest do
       assert_parse_error("true * 1")
       assert_parse_error("1 / true")
       assert_parse_error("true / 1")
-      assert_parse_error("1 % true")
-      assert_parse_error("true % 1")
 
       assert_parse_error(~s["a" + "b"])
       assert_parse_error(~s[1 + "b"])
@@ -503,9 +494,6 @@ defmodule Elex.EvaluatorTest do
       assert_parse_error(~s["a" / "b"])
       assert_parse_error(~s[1 / "b"])
       assert_parse_error(~s["a" / 1])
-      assert_parse_error(~s["a" % "b"])
-      assert_parse_error(~s[1 % "b"])
-      assert_parse_error(~s["a" % 1])
     end
 
     test "returns error for comparison operators with incompatible types during parsing" do

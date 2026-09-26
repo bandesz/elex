@@ -340,8 +340,8 @@ valid, and `if(false, 1m, 100cm)` returns metres. A literal `0` (`0`, `0.0`,
 `clamp(width, 0, 10cm)`, `if(width > 0, width, 0)`); variables and `1 - 1`
 are not. `between(50cm, 1m, 2m)` is `false` because 50 cm is below 1 m after
 converting into centimetres. On non-additive categories the units must
-already match; `min(1C, 32F)` is an error. `sqrt`, `pow`, `rem`, `mod`, and
-`%` reject unitful arguments.
+already match; `min(1C, 32F)` is an error. `sqrt`, `pow`, `rem`, and `mod`
+reject unitful arguments.
 
 ## Variables
 

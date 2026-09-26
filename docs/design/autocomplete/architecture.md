@@ -37,7 +37,7 @@ Do not reuse `Elex.Parser.parse/3` for the incomplete prefix. NimbleParsec is al
 | Identifier / keyword / function name / unit atom | One letter-led walk as above. Variables and function names are lowercase in the language; unit atoms may use `A-Z` and optional `^`+digits |
 | Number | parser number (`digits`, optional `.digits`, optional `e/E` exponent **with a digit**). Unit suffix attaches only when this token is **complete** |
 | String | from `"` to closing `"` or EOF; escapes as in the expression language |
-| Operator / punct | `+ - * / % < > = ! ( ) ,` including two-char `<= >= == !=` |
+| Operator / punct | `+ - * / < > = ! ( ) ,` including two-char `<= >= == !=` |
 
 Whitespace is not part of the replacement range. Cursor in whitespace → empty token, `range: {cursor, cursor}`.
 
