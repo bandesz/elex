@@ -60,6 +60,6 @@ defmodule Elex.Functions.RemoveUnit do
   end
 
   defp unitful_category?(type) do
-    Validator.numeric_type?(type) and type != :decimal
+    Validator.numeric_type?(type) and type not in [:decimal, :percent]
   end
 end

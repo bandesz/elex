@@ -44,6 +44,7 @@ The parser produces plain Erlang terms (tagged tuples). Common shapes:
 | Form | Meaning |
 |------|---------|
 | `%Decimal{}` | Decimal literal |
+| `{:percent, decimal}` | Percent literal (`50%`). `-10%` is one literal, not unary minus plus a percent |
 | `true`, `false` | Boolean literal |
 | `"string"` | String literal |
 | `nil` | Null literal |
@@ -110,6 +111,8 @@ AST and a target variable name, it returns an inverted AST representing the
 inverse operation.
 
 Supported operations: `+`, `-`, `*`, `/` (with the variable on one side only).
+Any AST containing `{:percent, _}` returns
+`{:error, "cannot invert an expression that contains a percent"}`.
 
 ```elixir
 alias Elex.{Parser, Inverter}
@@ -130,6 +133,7 @@ Elex.Evaluator.evaluate!(inverted, result_context)
 - The expression contains more than one variable
 - The target variable is not present
 - The expression uses unsupported operations (comparisons, functions, etc.)
+- Any AST containing `{:percent, _}` (`{:error, "cannot invert an expression that contains a percent"}`)
 - Division by zero would occur during inversion
 
 ## Custom functions
@@ -174,7 +178,8 @@ including `C`, set `units: :point` (`2 * 1C` stays illegal as a language
 op).
 
 Use `Elex.Validator.same_numeric_type/2` when every argument must be the same
-numeric type (`:decimal` or one category). It returns `{:ok, type}`,
+numeric type. It unifies `:decimal`, one category, or `:percent`, including a
+literal `0` next to a percent. It returns `{:ok, type}`,
 `{:mismatch, type}` when the first argument is not numeric,
 `{:mismatch, expected, got}` when later arguments differ, or `{:error, reason}`.
 Use `Elex.Validator.numeric_mismatch_message/2` for the built-in wording
@@ -208,7 +213,7 @@ end
 
 ### Preserve the unit
 
-`abs`-style: accept a number or a quantity of one category. Set
+`abs`-style: accept a number, a percent, or a quantity of one category. Set
 `units: :point` so same-unit non-additive quantities (`1C`) are allowed.
 Validate with `same_numeric_type/2`, unwrap the quantity in `call/1`, then
 rewrap the same unit. Omitted `units:` is `:additive` and rejects `1C`.
@@ -229,6 +234,11 @@ def call([%Elex.Quantity{value: value, unit: unit}]) do
   {:ok, %Elex.Quantity{value: result, unit: unit}}
 end
 
+def call([%Elex.Percent{value: value}]) do
+  {:ok, result} = call([value])
+  {:ok, %Elex.Percent{value: result}}
+end
+
 def call([arg]) when is_struct(arg, Decimal) do
   {:ok, Decimal.abs(arg)}
 end
@@ -237,7 +247,7 @@ end
 ### Same-category multi-arg
 
 `min` / `between`-style: `units: :point` and `same_numeric_type/2` so every
-argument is `:decimal` or the same category. On additive categories, later
+argument may be `:decimal`, `:percent`, or the same category. On additive categories, later
 quantity arguments are already converted into the first quantity argument's unit, so
 `call/1` can compare or combine `.value` fields and rewrap the first unit
 (or return a boolean). On non-additive categories the units must already
@@ -257,6 +267,11 @@ end
 def call([%Elex.Quantity{unit: unit} | _] = args) do
   {:ok, result} = call(Enum.map(args, & &1.value))
   {:ok, %Elex.Quantity{value: result, unit: unit}}
+end
+
+def call([%Elex.Percent{} | _] = args) do
+  {:ok, result} = call(Enum.map(args, & &1.value))
+  {:ok, %Elex.Percent{value: result}}
 end
 
 def call([first | rest]) do

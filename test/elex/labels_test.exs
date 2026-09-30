@@ -24,6 +24,10 @@ defmodule Elex.LabelsTest do
       assert Labels.label(nil) == "empty"
     end
 
+    test "returns a human-readable label for :percent" do
+      assert Labels.label(:percent) == "percent"
+    end
+
     test "labels an empty dimension as number" do
       assert Labels.label(%Elex.Dimension{monomial: %{}}) == "number"
     end
@@ -40,6 +44,10 @@ defmodule Elex.LabelsTest do
 
     test "formats a dim tuple like a dimension struct" do
       assert Labels.got({:dim, %{length: 1}}) == "got length quantity"
+    end
+
+    test "formats a percent without calling it a quantity" do
+      assert Labels.got(:percent) == "got percent"
     end
   end
 end

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A `%` suffix on a number literal is a percent (`50%` stores 50 percent points). `10% + 20%` is 30%, `50% * 50%` is 25%, and `100 * 50%` is the number 50
+- `inc(value, rate)` and `dec(value, rate)` scale a number, quantity, or percent by `100% + rate` and `100% - rate`. `rate` must be a percent
+
 ### Removed
 
 - The `%` remainder operator. Use `rem(a, b)` (sign follows the dividend) or `mod(a, b)` (sign follows the divisor)

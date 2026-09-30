@@ -28,18 +28,14 @@ defmodule Elex.Functions.If do
     alias Elex.Validator
 
     with {:ok, :boolean} <- Validator.validate(cond_ast, context),
-         {:ok, type1} <- Validator.validate(val1_ast, context),
-         {:ok, type2} <- Validator.validate(val2_ast, context) do
-      case Validator.unify_with_literal_zero([val1_ast, val2_ast], [type1, type2], context) do
-        {:ok, type} ->
-          {:ok, type}
-
-        {:mismatch, left, right} ->
-          {:error, "if branches must have the same type, got #{label(left)} and #{label(right)}"}
-      end
+         {:ok, type} <- unify_branches(val1_ast, val2_ast, context) do
+      {:ok, type}
     else
       {:ok, cond_type} ->
         {:error, "if condition must be a boolean, got #{label(cond_type)}"}
+
+      {:mismatch, left, right} ->
+        {:error, "if branches must have the same type, got #{label(left)} and #{label(right)}"}
 
       {:error, reason} ->
         {:error, reason}
@@ -57,7 +53,14 @@ defmodule Elex.Functions.If do
       end
 
     target = Validator.first_quantity_unit([cond_ast, true_ast, false_ast], context)
-    {:ok, Elex.Evaluator.align_to_unit(value, target, context)}
+    unified = unify_branches(true_ast, false_ast, context)
+
+    aligned =
+      value
+      |> Elex.Evaluator.align_to_unit(target, context)
+      |> Elex.Evaluator.align_percent_zero(unified, context)
+
+    {:ok, aligned}
   end
 
   @impl Function
@@ -78,5 +81,12 @@ defmodule Elex.Functions.If do
       description: "returns value1 if condition is true, otherwise value2",
       category: :math
     }
+  end
+
+  defp unify_branches(val1_ast, val2_ast, context) do
+    with {:ok, type1} <- Validator.validate(val1_ast, context),
+         {:ok, type2} <- Validator.validate(val2_ast, context) do
+      Validator.unify_with_literal_zero([val1_ast, val2_ast], [type1, type2], context)
+    end
   end
 end

@@ -17,8 +17,9 @@ defmodule Elex.Function do
     `Elex.Unit.same?/2` (no silent F→C). Custom functions that validate with
     `Elex.Validator.same_numeric_type/2` inherit the same literal-`0` rule
     as built-ins: a literal `0` (`0`, `0.0`, `-0`) next to an additive
-    quantity is that quantity's zero. Language `+` / `-` do not use the
-    helper and still reject `10cm + 0`.
+    quantity is that quantity's zero. A literal `0` next to a percent
+    follows that same `same_numeric_type/2` rule. Language `+` / `-` do
+    not use the helper and still reject `10cm + 0` and `10% + 0`.
   * `:additive` — reject non-additive arguments. Linear same-category args
     still convert into the first quantity argument's unit. This is the
     default, so unmarked `double(1C)` errors and `double(1m)` works.
@@ -55,6 +56,11 @@ defmodule Elex.Function do
           {:ok, %Elex.Quantity{value: doubled, unit: unit}}
         end
 
+        def call([%Elex.Percent{value: value}]) do
+          {:ok, doubled} = call([value])
+          {:ok, %Elex.Percent{value: doubled}}
+        end
+
         def call([arg]) when is_struct(arg, Decimal) do
           {:ok, Decimal.mult(arg, Decimal.new(2))}
         end
@@ -67,10 +73,11 @@ defmodule Elex.Function do
   """
 
   @typedoc """
-  An evaluated argument or return value. With a unit catalog, numeric
-  arguments may be an [`Elex.Quantity.t()`](`Elex.Quantity`).
+  An evaluated argument or return value. Numeric arguments may be
+  [`%Elex.Percent{}`](`Elex.Percent`), or, with a unit catalog, an
+  [`Elex.Quantity.t()`](`Elex.Quantity`).
   """
-  @type value :: String.t() | boolean() | Decimal.t() | Elex.Quantity.t() | nil
+  @type value :: String.t() | boolean() | Decimal.t() | Elex.Quantity.t() | Elex.Percent.t() | nil
   @type error_reason :: term()
 
   @typedoc """
@@ -116,10 +123,11 @@ defmodule Elex.Function do
 
   Must return `{:ok, value}` on success or `{:error, reason}` on failure.
 
-  Numeric arguments may be [`Elex.Quantity.t()`](`Elex.Quantity`). For
-  `:additive` functions, and for `:point` functions on additive categories,
-  the evaluator converts later quantity arguments into the first **quantity**
-  argument's unit before `call/1`.
+  Numeric arguments may be [`%Elex.Percent{}`](`Elex.Percent`) the same way
+  they may be [`Elex.Quantity.t()`](`Elex.Quantity`), and `:point` functions
+  receive and return it. For `:additive` functions, and for `:point`
+  functions on additive categories, the evaluator converts later quantity
+  arguments into the first **quantity** argument's unit before `call/1`.
 
   Functions that short-circuit (`if`, `coalesce`) may implement
   `evaluate_call/2` instead of relying on eager `call/1`. Functions that

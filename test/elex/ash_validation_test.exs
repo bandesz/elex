@@ -156,6 +156,28 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
                    expected_type: :length
                  )
       end
+
+      test "succeeds with expected_type :percent when the context has no catalog" do
+        assert {:ok, opts} =
+                 AshValidation.init(
+                   attribute: :expr,
+                   context: Elex.new_context(),
+                   expected_type: :percent
+                 )
+
+        assert Keyword.get(opts, :expected_type) == :percent
+      end
+
+      test "succeeds with expected_type :percent when a length catalog is attached" do
+        assert {:ok, opts} =
+                 AshValidation.init(
+                   attribute: :expr,
+                   context: length_context(),
+                   expected_type: :percent
+                 )
+
+        assert Keyword.get(opts, :expected_type) == :percent
+      end
     end
 
     describe "validate/3" do
@@ -320,6 +342,62 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
 
         assert error.field == :expr
         assert error.message =~ "must return length, but returns decimal"
+      end
+
+      test "accepts a percent literal when :expected_type is :percent" do
+        changeset = changeset(%{expr: "50%"})
+
+        assert :ok = AshValidation.validate(changeset, opts(expected_type: :percent), %{})
+      end
+
+      test "accepts a percent sum when :expected_type is :percent" do
+        changeset = changeset(%{expr: "10% + 20%"})
+
+        assert :ok = AshValidation.validate(changeset, opts(expected_type: :percent), %{})
+      end
+
+      test "accepts a percent literal when :expected_type is :percent and a length catalog is attached" do
+        changeset = changeset(%{expr: "50%"})
+
+        assert :ok =
+                 AshValidation.validate(
+                   changeset,
+                   opts(context: length_context(), expected_type: :percent),
+                   %{}
+                 )
+      end
+
+      test "accepts a percent sum when :expected_type is :percent and a length catalog is attached" do
+        changeset = changeset(%{expr: "10% + 20%"})
+
+        assert :ok =
+                 AshValidation.validate(
+                   changeset,
+                   opts(context: length_context(), expected_type: :percent),
+                   %{}
+                 )
+      end
+
+      test "rejects a decimal expression when :expected_type is :percent" do
+        changeset = changeset(%{expr: "1 + 2"})
+
+        assert {:error, %InvalidAttribute{} = error} =
+                 AshValidation.validate(changeset, opts(expected_type: :percent), %{})
+
+        assert error.field == :expr
+        assert error.message =~ "must return percent, but returns decimal"
+        assert error.value == "1 + 2"
+      end
+
+      test "rejects a percent expression when :expected_type is :decimal" do
+        changeset = changeset(%{expr: "50%"})
+
+        assert {:error, %InvalidAttribute{} = error} =
+                 AshValidation.validate(changeset, opts(expected_type: :decimal), %{})
+
+        assert error.field == :expr
+        assert error.message =~ "must return decimal, but returns percent"
+        assert error.value == "50%"
       end
     end
   end

@@ -52,7 +52,7 @@ human-readable message from Elex.
 |--------|----------|-------------|
 | `:attribute` | yes | Atom name of the string attribute holding the expression |
 | `:context` | yes | `Elex.Context` with allowed variables and functions |
-| `:expected_type` | yes | `:decimal`, `:boolean`, `:string`, or a catalog category atom (`:length`) when the context has a units catalog. Category atoms are passed as `category:` to `Elex.validate/3` — not compared to a returned `:length` atom. Validate returns `%Elex.Dimension{}` for unitful results (`length`, `length \| time`). |
+| `:expected_type` | yes | `:decimal`, `:boolean`, `:string`, or `:percent` (a primitive type that does not need a catalog), or a catalog category atom (`:length`) when the context has a units catalog. Category atoms are passed as `category:` to `Elex.validate/3` — not compared to a returned `:length` atom. Validate returns `%Elex.Dimension{}` for unitful results (`length`, `length \| time`). |
 | `:add_value_type_from_attribute` | no | Attribute atom; adds a `"value"` variable typed from that attribute's current value |
 | `:description` | no | Custom text included in validation error messages |
 
@@ -107,7 +107,7 @@ This lets users write expressions like `value > 100` where `value` is typed as
 When the context has a units catalog, `:expected_type` may be a category atom.
 That becomes `Elex.validate(..., category: :length)` — not a comparison of
 validate's return value to `:length`. Dimensionless `:decimal`, `:boolean`,
-and `:string` are unchanged.
+`:string`, and `:percent` stay primitive when a catalog is attached.
 
 ```elixir
 validations do

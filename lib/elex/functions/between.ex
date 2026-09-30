@@ -42,6 +42,10 @@ defmodule Elex.Functions.Between do
     call(Enum.map(args, & &1.value))
   end
 
+  def call([%Elex.Percent{} | _] = args) do
+    call(Enum.map(args, & &1.value))
+  end
+
   def call([%Decimal{} = value, %Decimal{} = low, %Decimal{} = high]) do
     if Decimal.compare(low, high) == :gt do
       {:error, "between low must be less than or equal to high"}

@@ -7,5 +7,6 @@ Initiative-level designs for Elex. Each subdirectory has its own `index.md`.
 | [units/](units/index.md) | complete | Opt-in catalogs, quantities, `|` formulas, compound literal suffixes |
 | [unitless-zero/](unitless-zero/index.md) | complete | Literal `0` next to additive quantities in comparisons and `:point` functions |
 | [autocomplete/](autocomplete/index.md) | complete | `Elex.autocomplete/4` — syntactic completions for incomplete expressions |
+| [percent/](percent/index.md) | complete | `%` suffix for percent values |
 
 Start at the linked `index.md` for decisions and user flows.

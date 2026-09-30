@@ -6,13 +6,14 @@ defmodule Elex do
 
   - Arithmetic operations (`+`, `-`, `*`, `/`) and unary minus
   - Comparison operators (`<`, `>`, `<=`, `>=`, `==`, `!=`) for decimals,
-    booleans, strings, `null`, same-dimension quantities, and a literal `0`
-    next to an additive quantity
+    booleans, strings, `null`, percents, same-dimension quantities, and a
+    literal `0` next to an additive quantity or a percent
   - Boolean operations (`and`, `or`, `not`) with short-circuit evaluation
-  - Literals: decimals, booleans (`true`/`false`, `yes`/`no`), strings, `null`
+  - Literals: decimals, booleans (`true`/`false`, `yes`/`no`), strings, `null`,
+    percents (`50%`)
   - Variables and built-in functions (`abs`, `add_unit`, `between`, `ceil`,
-    `clamp`, `coalesce`, `concat`, `contains`, `convert`, `ends_with`,
-    `floor`, `if`, `length`, `lower`, `match`, `max`, `min`, `mod`, `pi`,
+    `clamp`, `coalesce`, `concat`, `contains`, `convert`, `dec`, `ends_with`,
+    `floor`, `if`, `inc`, `length`, `lower`, `match`, `max`, `min`, `mod`, `pi`,
     `pow`, `rem`, `remove_unit`, `round`, `sqrt`, `starts_with`, `trim`,
     `upper`)
   - Variadic `min`, `max`, and `coalesce` (two or more arguments) and
@@ -60,6 +61,7 @@ defmodule Elex do
 
   alias Elex.Context
   alias Elex.Labels
+  alias Elex.Percent
   alias Elex.Quantity
   alias Elex.Unit
   alias Elex.Units.Catalog
@@ -74,9 +76,11 @@ defmodule Elex do
     Elex.Functions.Concat,
     Elex.Functions.Contains,
     Elex.Functions.Convert,
+    Elex.Functions.Dec,
     Elex.Functions.EndsWith,
     Elex.Functions.Floor,
     Elex.Functions.If,
+    Elex.Functions.Inc,
     Elex.Functions.Length,
     Elex.Functions.Lower,
     Elex.Functions.Match,
@@ -164,7 +168,7 @@ defmodule Elex do
   ## Returns
 
   - `{:ok, result}` - The evaluated result (`Decimal.t()`, `boolean()`, `String.t()`,
-    `nil`, or [`Elex.Quantity.t()`](Elex.Quantity))
+    `nil`, [`Elex.Quantity.t()`](Elex.Quantity), or [`%Elex.Percent{}`](Elex.Percent))
   - `{:error, reason}` - A human-readable error message
 
   ## Examples
@@ -178,7 +182,8 @@ defmodule Elex do
 
   """
   @spec evaluate(String.t(), Context.t(), keyword()) ::
-          {:ok, Decimal.t() | boolean() | String.t() | nil | Quantity.t()} | {:error, String.t()}
+          {:ok, Decimal.t() | boolean() | String.t() | nil | Quantity.t() | Percent.t()}
+          | {:error, String.t()}
   def evaluate(expression_string, context, opts \\ []) do
     {unit, category} = evaluate_opts!(opts)
     require_units_catalog_for_unit!(unit, context)
@@ -222,7 +227,7 @@ defmodule Elex do
   ## Returns
 
   - `{:ok, type}` - The expression's result type (`:decimal`, `:boolean`,
-    `:string`, or [`Elex.Dimension.t()`](Elex.Dimension) for unitful results)
+    `:string`, `:percent`, or [`Elex.Dimension.t()`](Elex.Dimension) for unitful results)
   - `{:error, reason}` - A human-readable error message
 
   ## Examples
@@ -236,9 +241,11 @@ defmodule Elex do
 
   """
   @spec validate(String.t(), Context.t()) ::
-          {:ok, atom() | Elex.Dimension.t()} | {:error, String.t()}
+          {:ok, :decimal | :boolean | :string | :percent | :unknown | nil | Elex.Dimension.t()}
+          | {:error, String.t()}
   @spec validate(String.t(), Context.t(), keyword()) ::
-          {:ok, atom() | Elex.Dimension.t()} | {:error, String.t()}
+          {:ok, :decimal | :boolean | :string | :percent | :unknown | nil | Elex.Dimension.t()}
+          | {:error, String.t()}
   def validate(expression_string, context, opts \\ []) do
     reject_unknown_opts!(opts, [:category], :validate)
     category = Keyword.get(opts, :category)
@@ -489,6 +496,9 @@ defmodule Elex do
       quantity_value?(value) ->
         {:error, "variable '#{name}' has a unit but no category"}
 
+      invalid_percent_value?(value) ->
+        {:error, "variable '#{name}' percent value must be a decimal"}
+
       true ->
         variable = %Elex.Variable{value: value, type: infer_type(value)}
         {:ok, Context.add_variable(context, name, variable)}
@@ -515,6 +525,10 @@ defmodule Elex do
   defp quantity_value?(%Quantity{unit: unit}) when is_binary(unit), do: true
   defp quantity_value?(%Quantity{unit: %Unit{}}), do: true
   defp quantity_value?(_value), do: false
+
+  defp invalid_percent_value?(%Percent{value: %Decimal{}}), do: false
+  defp invalid_percent_value?(%Percent{}), do: true
+  defp invalid_percent_value?(_value), do: false
 
   defp add_categorized_variable(context, name, value, category) do
     unit = quantity_unit(value)
@@ -621,6 +635,7 @@ defmodule Elex do
   defp infer_type(value) when is_integer(value), do: :decimal
   defp infer_type(value) when is_float(value), do: :decimal
   defp infer_type(%Decimal{}), do: :decimal
+  defp infer_type(%Percent{value: %Decimal{}}), do: :percent
   defp infer_type(value) when is_binary(value), do: :string
   defp infer_type(value) when is_boolean(value), do: :boolean
   defp infer_type(nil), do: nil

@@ -403,6 +403,10 @@ defmodule Elex.Autocomplete do
     do_tokenize(rest, [{:op, <<c>>} | acc])
   end
 
+  defp do_tokenize_other(<<?%, rest::binary>>, acc) do
+    do_tokenize(rest, [{:percent, "%"} | acc])
+  end
+
   defp do_tokenize_other(<<_::8, rest::binary>>, acc) do
     do_tokenize(rest, acc)
   end

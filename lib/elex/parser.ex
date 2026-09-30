@@ -84,11 +84,20 @@ defmodule Elex.Parser do
     |> optional(ascii_char([?+, ?-]))
     |> ascii_string(CharClass.digit_chars(), min: 1)
 
-  literal_decimal =
-    optional(string("-"))
-    |> concat(ascii_string(CharClass.digit_chars(), min: 1))
+  unsigned_number =
+    ascii_string(CharClass.digit_chars(), min: 1)
     |> optional(concat(ascii_char([?.]), ascii_string(CharClass.digit_chars(), min: 1)))
     |> optional(scientific_exponent)
+
+  # Used only as a lookahead so unary minus does not consume the sign of
+  # `-10%`. `-(50%)` stays unary minus because `(` is not this pattern.
+  percent_number =
+    unsigned_number
+    |> concat(ignore(ws) |> string("%"))
+
+  literal_decimal =
+    optional(string("-"))
+    |> concat(unsigned_number)
     |> reduce(:to_decimal)
     |> label("number")
 
@@ -107,6 +116,23 @@ defmodule Elex.Parser do
   end
 
   defp maybe_attach_unit_suffix(rest, [decimal], context, _line, _offset) do
+    case take_percent_suffix(rest) do
+      {:ok, rest_after} ->
+        {rest_after, [{:percent, decimal}], context}
+
+      :none ->
+        attach_unit_suffix(rest, decimal, context)
+    end
+  end
+
+  defp take_percent_suffix(rest) do
+    case skip_parser_ws(rest) do
+      <<"%", rest_after::binary>> -> {:ok, rest_after}
+      _ -> :none
+    end
+  end
+
+  defp attach_unit_suffix(rest, decimal, context) do
     case take_braced_suffix(rest) do
       {:ok, interior, rest_after} ->
         attach_braced_formula(decimal, context, interior, rest_after, rest)
@@ -447,6 +473,7 @@ defmodule Elex.Parser do
       |> concat(parsec(:expr_not))
       |> reduce(:unary_op),
       ascii_char([?-])
+      |> lookahead_not(percent_number)
       |> ignore(ws)
       |> concat(parsec(:expr_not))
       |> reduce(:unary_negate_op),

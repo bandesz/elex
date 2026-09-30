@@ -18,9 +18,9 @@ Full guides are available on [hexdocs.pm](https://hexdocs.pm/elex):
 ## Features
 
 - **Arithmetic Operations**: `+`, `-`, `*`, `/`, unary `-`
-- **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=` (numbers, strings, and same-dimension quantities)
+- **Comparison Operators**: `<`, `>`, `<=`, `>=`, `==`, `!=` (numbers, strings, percents, and same-dimension quantities)
 - **Logical Operations**: `and`, `or`, `not` (with short-circuit evaluation)
-- **Literals**: Decimal numbers (including scientific notation), booleans (`true`/`false`, `yes`/`no`), strings, and `null`
+- **Literals**: Decimal numbers (including scientific notation), percent literals (`50%`, `-10%`), booleans (`true`/`false`, `yes`/`no`), strings, and `null`
 - **Variables**: Dynamic variable substitution
 - **Functions**: Built-in math, string, and utility functions (see [Functions](#functions)) and custom functions via `Elex.Function`
 - **Type System**: Static type checking and validation
@@ -112,12 +112,13 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate("10 - 5", context)   # => #Decimal<5>
 {:ok, result} = Elex.evaluate("10 * 5", context)   # => #Decimal<50>
 {:ok, result} = Elex.evaluate("10 / 5", context)   # => #Decimal<2>
+{:ok, result} = Elex.evaluate("100 * 50%", context) # => #Decimal<50>
 {:ok, result} = Elex.evaluate("2 + 3 * 4", context) # => #Decimal<14> (respects precedence)
 {:ok, result} = Elex.evaluate("-5", context)       # => #Decimal<-5> (unary minus)
 {:ok, result} = Elex.evaluate("-(1 + 2)", context) # => #Decimal<-3>
 ```
 
-> **Note:** `Elex.evaluate/2` returns `{:ok, result}` on success or `{:error, reason}` on failure. Arithmetic operations use `Decimal` and return `Decimal` values. `*` and `/` have higher precedence than `+` and `-`.
+> **Note:** `Elex.evaluate/2` returns `{:ok, result}` on success or `{:error, reason}` on failure. Number arithmetic returns a `Decimal`, a quantity keeps its unit, and percent `+`, `-`, and percent-times-percent return `%Elex.Percent{}`. `*` and `/` have higher precedence than `+` and `-`. A `%` suffix on a number literal is percent points (`50%` stores 50), so `100 * 50%` evaluates to `50`.
 
 ### Comparisons
 
@@ -134,8 +135,9 @@ context = Elex.new_context()
 {:ok, true} = Elex.evaluate(~s["b" >= "a"], Elex.new_context())
 ```
 
-Comparison operands must have the same type (decimal, boolean, string, null,
-or same-dimension quantities when a catalog is attached).
+Comparison operands must have the same type (decimal, percent, boolean, string, null,
+or same-dimension quantities when a catalog is attached). Percent points order
+against another percent; a literal `0` is allowed and other numbers are rejected.
 
 ### Logical Operations
 
@@ -165,7 +167,8 @@ or same-dimension quantities when a catalog is attached).
 | `pow(base, exp)` | Exponentiation |
 | `rem(a, b)` | Remainder (sign follows the dividend) |
 | `mod(a, b)` | Floored modulo (sign follows the divisor) |
-| `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers or same-category quantities (variadic) |
+| `inc(value, rate)`, `dec(value, rate)` | Increase or decrease `value` by a percent rate |
+| `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers, percents, or same-category quantities (variadic) |
 | `clamp(x, min, max)` | Clamp `x` to an inclusive range |
 | `between(x, low, high)` | `true` when `x` is in the inclusive range |
 | `pi()` | Mathematical constant π |
@@ -287,7 +290,7 @@ defmodule MyApp.Resource do
 end
 ```
 
-The `expected_type` option accepts `:decimal`, `:boolean`, or `:string`. When the context has a units catalog, it may also be a category atom such as `:length`. Use `add_value_type_from_attribute` to inject a `value` variable typed from another attribute — useful when validating formulas that reference the current value.
+The `expected_type` option accepts `:decimal`, `:boolean`, `:string`, or `:percent`. When the context has a units catalog, it may also be a category atom such as `:length`. Use `add_value_type_from_attribute` to inject a `value` variable typed from another attribute — useful when validating formulas that reference the current value.
 
 ## Expression Inversion
 

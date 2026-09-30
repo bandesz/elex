@@ -39,7 +39,8 @@ defmodule Elex.Functions.Coalesce do
   @doc false
   def evaluate_call(args_ast, context) do
     target = Validator.first_quantity_unit(args_ast, context)
-    {:ok, eval_until_present(args_ast, target, context)}
+    unified = validate(args_ast, context)
+    {:ok, eval_until_present(args_ast, target, unified, context)}
   end
 
   @impl Function
@@ -58,14 +59,19 @@ defmodule Elex.Functions.Coalesce do
     }
   end
 
-  defp eval_until_present([arg_ast | rest], target, context) do
+  defp eval_until_present([arg_ast | rest], target, unified, context) do
     case Elex.Evaluator.evaluate!(arg_ast, context) do
-      nil -> eval_until_present(rest, target, context)
-      value -> Elex.Evaluator.align_to_unit(value, target, context)
+      nil ->
+        eval_until_present(rest, target, unified, context)
+
+      value ->
+        value
+        |> Elex.Evaluator.align_to_unit(target, context)
+        |> Elex.Evaluator.align_percent_zero(unified, context)
     end
   end
 
-  defp eval_until_present([], _target, _context), do: nil
+  defp eval_until_present([], _target, _unified, _context), do: nil
 
   defp validate_all(args_ast, context, validator) do
     Enum.reduce_while(args_ast, {:ok, []}, fn arg_ast, acc ->

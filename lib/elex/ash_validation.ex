@@ -33,8 +33,8 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
     - `:attribute` (required) — Atom name of the attribute containing the expression
     - `:context` (required) — A [`Elex.Context`](Elex.Context) defining allowed variables
       and functions
-    - `:expected_type` (required) — Expected result type (`:decimal`, `:boolean`, or
-      `:string`). When the context has a units catalog, may also be a catalog
+    - `:expected_type` (required) — Expected result type (`:decimal`, `:boolean`,
+      `:string`, or `:percent`). When the context has a units catalog, may also be a catalog
       category atom such as `:length`; that is passed as `category:` to
       [`Elex.validate/3`](Elex.html#validate/3), not compared to a returned atom.
     - `:add_value_type_from_attribute` — When set to an attribute atom, adds a `"value"`
@@ -70,7 +70,7 @@ if Code.ensure_loaded?(Ash.Resource.Validation) do
       end
     end
 
-    @primitive_types [:decimal, :boolean, :string]
+    @primitive_types [:decimal, :boolean, :string, :percent]
 
     defp validate_expected_type_option(opts) do
       case Keyword.get(opts, :expected_type) do

@@ -138,6 +138,57 @@ defmodule Elex.InverterTest do
       assert {:error, message} = Inverter.invert(ast, "value")
       assert message =~ "Cannot invert: division by zero"
     end
+
+    test "refuses a lone percent" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("50%", ctx, validate: false)
+
+      assert {:error, "cannot invert an expression that contains a percent"} =
+               Inverter.invert(ast, "rate")
+
+      assert {:error, "cannot invert an expression that contains a percent"} =
+               Inverter.invert({:percent, Decimal.new("50")}, "rate")
+    end
+
+    test "refuses an expression that contains a percent" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("rate + 10%", ctx, validate: false)
+
+      assert {:error, "cannot invert an expression that contains a percent"} =
+               Inverter.invert(ast, "rate")
+    end
+
+    test "refuses a unary minus of a percent" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("-(50%)", ctx, validate: false)
+
+      assert {:error, "cannot invert an expression that contains a percent"} =
+               Inverter.invert(ast, "rate")
+    end
+
+    test "refuses a not expression that contains a percent" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("not (rate == 10%)", ctx, validate: false)
+
+      assert {:error, "cannot invert an expression that contains a percent"} =
+               Inverter.invert(ast, "rate")
+    end
+
+    test "refuses a function call that contains a percent" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("min(rate, 10%)", ctx, validate: false)
+
+      assert {:error, "cannot invert an expression that contains a percent"} =
+               Inverter.invert(ast, "rate")
+    end
+
+    test "inverts rate + 1 unchanged" do
+      ctx = Elex.new_context()
+      {:ok, ast, _} = Parser.parse("rate + 1", ctx, validate: false)
+      {:ok, result} = Inverter.invert(ast, "rate")
+
+      assert result == {:-, [{:var, "rate"}, Decimal.new("1")]}
+    end
   end
 
   describe "complex expressions (nested operations)" do

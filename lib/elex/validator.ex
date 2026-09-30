@@ -22,7 +22,7 @@ defmodule Elex.Validator do
   import Elex.Labels
 
   @reserved_keywords ["and", "or", "not", "null", "true", "false", "yes", "no"]
-  @scalar_types [:decimal, :boolean, :string, :unknown, nil]
+  @scalar_types [:decimal, :boolean, :string, :percent, :unknown, nil]
   @non_numeric_scalars [:boolean, :string, :unknown, nil]
 
   @doc """
@@ -35,7 +35,7 @@ defmodule Elex.Validator do
 
   ## Returns
 
-  - `{:ok, type}` - The expression's result type (`:decimal`, `:boolean`, `:string`, `nil`, or `%Elex.Dimension{}`)
+  - `{:ok, type}` - The expression's result type (`:decimal`, `:boolean`, `:string`, `:percent`, `nil`, or `%Elex.Dimension{}`)
   - `{:error, reason}` - A human-readable validation error
 
   ## Examples
@@ -61,19 +61,20 @@ defmodule Elex.Validator do
   @doc false
   def numeric_type?(%Dimension{}), do: true
   def numeric_type?(:decimal), do: true
+  def numeric_type?(:percent), do: true
   def numeric_type?(type) when type in @non_numeric_scalars, do: false
   def numeric_type?(type) when is_atom(type), do: true
 
   @doc """
   Checks that every AST node is the same numeric type.
 
-  Numeric types are `:decimal` and `%Elex.Dimension{}`. Returns
+  Numeric types are `:decimal`, `:percent`, and `%Elex.Dimension{}`. Returns
   `{:ok, type}` when all arguments match, `{:mismatch, type}` when the first
   argument is not numeric, `{:mismatch, expected, got}` when later arguments
   differ, or `{:error, reason}` when validation of an argument fails.
 
-  Use this from custom function `validate/2` callbacks that accept either a
-  either a number or a quantity of one category. See
+  Use this from custom function `validate/2` callbacks that can accept a
+  number, a percent, or a quantity of one category. See
   [Advanced Topics](advanced.html#custom-functions).
   """
   @spec same_numeric_type([term()], Context.t()) ::
@@ -131,6 +132,7 @@ defmodule Elex.Validator do
   defp match_literal_zero(:unset, _ctx), do: {:cont, :zero}
   defp match_literal_zero(:zero, _ctx), do: {:cont, :zero}
   defp match_literal_zero(:decimal, _ctx), do: {:cont, :decimal}
+  defp match_literal_zero(:percent, _ctx), do: {:cont, :percent}
 
   defp match_literal_zero(expected, ctx) do
     if additive_quantity_type?(expected, ctx) do
@@ -145,7 +147,7 @@ defmodule Elex.Validator do
       not numeric_type?(type) ->
         {:halt, {:mismatch, :decimal, type}}
 
-      type == :decimal or additive_quantity_type?(type, ctx) ->
+      type == :decimal or type == :percent or additive_quantity_type?(type, ctx) ->
         {:cont, type}
 
       true ->
@@ -202,6 +204,7 @@ defmodule Elex.Validator do
   end
 
   defp unify_zero_with_type(:decimal, _ctx), do: {:ok, :decimal}
+  defp unify_zero_with_type(:percent, _ctx), do: {:ok, :percent}
 
   defp unify_zero_with_type(type, ctx) do
     if additive_quantity_type?(type, ctx) do
@@ -495,6 +498,9 @@ defmodule Elex.Validator do
 
   defp infer({:-, ast}, ctx) when not is_list(ast) do
     case infer(ast, ctx) do
+      {:ok, :percent} ->
+        {:ok, :percent}
+
       {:ok, type} ->
         case numeric_dim(type, ctx) do
           {:ok, dim} ->
@@ -508,6 +514,8 @@ defmodule Elex.Validator do
         {:error, err}
     end
   end
+
+  defp infer({:percent, _decimal}, _ctx), do: {:ok, :percent}
 
   defp infer({:+, [left_ast, right_ast]}, ctx) do
     validate_add_sub_op(:+, left_ast, right_ast, ctx)
@@ -648,6 +656,9 @@ defmodule Elex.Validator do
 
   defp validate_add_sub_op(op, a, b, ctx) do
     case [infer(a, ctx), infer(b, ctx)] do
+      [{:ok, :percent}, {:ok, :percent}] ->
+        {:ok, :percent}
+
       [{:ok, type1}, {:ok, type2}] ->
         case {numeric_dim(type1, ctx), numeric_dim(type2, ctx)} do
           {{:ok, dim}, {:ok, dim}} ->
@@ -670,18 +681,15 @@ defmodule Elex.Validator do
   defp validate_mul_div_op(op, a, b, ctx) do
     case [infer(a, ctx), infer(b, ctx)] do
       [{:ok, type1}, {:ok, type2}] ->
-        with :ok <- reject_non_additive_type(type1, ctx, "'*' or '/'"),
-             :ok <- reject_non_additive_type(type2, ctx, "'*' or '/'"),
-             {:ok, left_dims} <- numeric_dim(type1, ctx),
-             {:ok, right_dims} <- numeric_dim(type2, ctx) do
-          {:ok, from_dims(combine_dims(op, left_dims, right_dims))}
-        else
-          {:error, reason} ->
-            {:error, reason}
+        case percent_scale_type(op, type1, type2, ctx) do
+          {:ok, type} ->
+            {:ok, type}
 
-          :error ->
-            {:error,
-             "'#{op}' operator cannot be used on #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"}
+          {:error, _} = err ->
+            err
+
+          :skip ->
+            validate_mul_div_dims(op, type1, type2, ctx)
         end
 
       [{:error, err}, _] ->
@@ -691,6 +699,61 @@ defmodule Elex.Validator do
         {:error, err}
     end
   end
+
+  defp validate_mul_div_dims(op, type1, type2, ctx) do
+    with :ok <- reject_non_additive_type(type1, ctx, "'*' or '/'"),
+         :ok <- reject_non_additive_type(type2, ctx, "'*' or '/'"),
+         {:ok, left_dims} <- numeric_dim(type1, ctx),
+         {:ok, right_dims} <- numeric_dim(type2, ctx) do
+      {:ok, from_dims(combine_dims(op, left_dims, right_dims))}
+    else
+      {:error, reason} ->
+        {:error, reason}
+
+      :error ->
+        {:error,
+         "'#{op}' operator cannot be used on #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"}
+    end
+  end
+
+  defp percent_scale_type(:*, :percent, :percent, _ctx), do: {:ok, :percent}
+
+  defp percent_scale_type(:*, :percent, other, ctx) when other != :percent do
+    scaled_operand_type(other, ctx)
+  end
+
+  defp percent_scale_type(:*, other, :percent, ctx) when other != :percent do
+    scaled_operand_type(other, ctx)
+  end
+
+  defp percent_scale_type(:/, type1, type2, _ctx)
+       when type1 == :percent or type2 == :percent do
+    {:error, "cannot divide with a percent"}
+  end
+
+  defp percent_scale_type(_op, _type1, _type2, _ctx), do: :skip
+
+  defp scaled_operand_type(:decimal, _ctx), do: {:ok, :decimal}
+
+  defp scaled_operand_type({:dim, _dim} = type, ctx) do
+    with :ok <- reject_non_additive_type(type, ctx, "'*' or '/'") do
+      {:ok, type}
+    end
+  end
+
+  defp scaled_operand_type(%Dimension{monomial: dim} = type, ctx) do
+    with :ok <- reject_non_additive_type(type, ctx, "'*' or '/'") do
+      {:ok, {:dim, dim}}
+    end
+  end
+
+  defp scaled_operand_type(type, ctx) when is_atom(type) and type not in @scalar_types do
+    with :ok <- reject_non_additive_type(type, ctx, "'*' or '/'") do
+      {:ok, {:dim, category_dim(ctx, type)}}
+    end
+  end
+
+  defp scaled_operand_type(_type, _ctx), do: :skip
 
   defp validate_comparison_op(op, a, b, ctx) do
     case [infer(a, ctx), infer(b, ctx)] do
@@ -732,6 +795,9 @@ defmodule Elex.Validator do
 
   defp add_sub_type_error(op, type1, type2, ctx) do
     cond do
+      type1 == :percent or type2 == :percent ->
+        {:error, percent_add_sub_message(op, type1, type2, ctx)}
+
       mixed_unit_and_decimal?(type1, type2) ->
         {:error, mixed_unit_number_message(op, type1, type2, ctx)}
 
@@ -748,6 +814,18 @@ defmodule Elex.Validator do
   defp add_sub_verb(:+), do: "add"
   defp add_sub_verb(:-), do: "subtract"
 
+  defp percent_add_sub_message(:+, type1, type2, ctx) do
+    "cannot add #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"
+  end
+
+  defp percent_add_sub_message(:-, type1, type2, ctx) do
+    if category_type?(type1) or category_type?(type2) do
+      "cannot subtract #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"
+    else
+      "cannot subtract #{type_label(type2, ctx)} from #{type_label(type1, ctx)}"
+    end
+  end
+
   defp mixed_unit_number_message(:+, type1, type2, ctx) do
     "cannot add #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"
   end
@@ -757,7 +835,7 @@ defmodule Elex.Validator do
   end
 
   defp comparison_type_error(op, type1, type2, ctx) do
-    if category_type?(type1) or category_type?(type2) do
+    if category_type?(type1) or category_type?(type2) or type1 == :percent or type2 == :percent do
       {:error, "cannot compare #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"}
     else
       {:error,
@@ -911,11 +989,22 @@ defmodule Elex.Validator do
   end
 
   defp unitless_zero_or_compare_error(op, a, b, type1, type2, ctx) do
-    if unitless_zero_with_additive?(a, b, type1, type2, ctx) do
-      {:ok, :boolean}
-    else
-      comparison_type_error(op, type1, type2, ctx)
+    cond do
+      percent_comparison?(a, b, type1, type2) ->
+        {:ok, :boolean}
+
+      unitless_zero_with_additive?(a, b, type1, type2, ctx) ->
+        {:ok, :boolean}
+
+      true ->
+        comparison_type_error(op, type1, type2, ctx)
     end
+  end
+
+  defp percent_comparison?(_a, _b, :percent, :percent), do: true
+
+  defp percent_comparison?(a, b, type1, type2) do
+    (literal_zero?(a) and type2 == :percent) or (literal_zero?(b) and type1 == :percent)
   end
 
   defp literal_zero?(%Decimal{} = decimal), do: Decimal.compare(decimal, 0) == :eq

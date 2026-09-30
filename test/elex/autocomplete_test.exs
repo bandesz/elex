@@ -638,6 +638,22 @@ defmodule Elex.AutocompleteTest do
     end
   end
 
+  describe "percent suffix" do
+    test "keeps length unit completion and does not suggest units for a percent", %{ctx: ctx} do
+      ctx = with_length_catalog(ctx)
+
+      assert {:ok, %{suggestions: suggestions}} = Elex.autocomplete("10m", 3, ctx)
+
+      assert %{kind: :unit, text: "m"} in suggestions
+      assert %{kind: :unit, text: "mm"} in suggestions
+
+      assert {:ok, %{suggestions: []}} = Elex.autocomplete("10%", 3, ctx)
+
+      assert {:ok, %{suggestions: []}} =
+               Elex.autocomplete("10%", 3, ctx, empty_prefix: :all)
+    end
+  end
+
   describe "function name (flow 5)" do
     test "suggests max, match, and mass for prefix ma after an operator", %{ctx: ctx} do
       assert {:ok, %{range: {4, 6}, suggestions: suggestions}} =

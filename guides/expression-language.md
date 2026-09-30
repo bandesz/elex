@@ -38,6 +38,23 @@ scientific notation.
 Parse traps (`10m / s`, spaces around `^`, copying inspect) are in
 [Units — Gotchas](units.md#gotchas).
 
+### Percent
+
+A `%` suffix on a number literal is percent points. `50%` stores `50`
+(`#Elex.Percent<50%>`). A space before the suffix is allowed (`50 %`).
+The suffix works with or without a units catalog (`-10%`, `1e2%`). A
+percent is not a catalog unit.
+
+`+` and `-` accept only percents: `10% + 20%` is `30%`. `10% + 0` and
+`100 + 10%` are errors. `*` of two percents stays a percent (`50% * 50%`
+is `25%`). `*` of a percent and a number is a number (`100 * 50%` is
+`50`). A quantity keeps its unit (`100cm * 50%` is `50 cm`). Division
+that touches a percent is `cannot divide with a percent`.
+
+A literal `0` (also `0.0`, `-0`) compares with a percent (`100% > 0`)
+and is accepted by `min`, `max`, `clamp`, `between`, `if`, and
+`coalesce`. `+` and `-` still reject `10% + 0`.
+
 ### Booleans
 
 ```elixir
@@ -112,7 +129,8 @@ Parentheses override precedence: `(1 + 2) * 3`.
 ### Arithmetic
 
 `+` and `-` add or subtract decimals, or quantities of the same dimension
-(the right-hand unit converts into the left). Mixing a quantity with a
+(the right-hand unit converts into the left). They also add and subtract
+percents (`10% + 20%` is `30%`). Mixing a quantity with a
 number is an error (`1m + 2` is `cannot add length and number`). Non-additive categories (`additive: false`,
 typically temperature) reject binary `+ − * /`; use `add_unit` / `remove_unit`
 for magnitude arithmetic. `*` and `/` scale a quantity by a number,
@@ -127,6 +145,9 @@ For floored modulo, use `mod(a, b)`.
 Comparison operators return a boolean. Operands must have the same type:
 
 - **Decimals** — numeric ordering
+- **Percents** — percent points order against another percent (`50% > 10%`). A
+  **literal** `0` (also `0.0`, `-0`) is allowed (`100% > 0`); other numbers are
+  rejected (`100% > 1`)
 - **Quantities** — same dimension; the right-hand unit converts into the left
   (non-additive categories also require the same unit). A **literal** `0`
   (also `0.0`, `-0`) is allowed next to an additive quantity
@@ -164,6 +185,7 @@ has a type; operators and functions enforce compatibility before evaluation.
 | Type | Description | Example values |
 |------|-------------|----------------|
 | `:decimal` | Numbers | `#Decimal<3.14>` |
+| `:percent` | Percent points | `#Elex.Percent<50%>` |
 | `:boolean` | True/false | `true`, `false` |
 | `:string` | Text | `"hello"` |
 | `nil` | Null | `null`, nil variables |

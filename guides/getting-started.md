@@ -63,7 +63,12 @@ when piping:
 | boolean | `:boolean` |
 | `nil` | `nil` |
 | `{number, "unit"}` or `%Elex.Quantity{}` | that category (requires a catalog and `category:`) |
+| `%Elex.Percent{value: Decimal}` | `:percent` |
 | anything else | `:unknown` |
+
+A `%Elex.Percent{}` whose `:value` is not a decimal is an error
+(`variable 'rate' percent value must be a decimal`). The anything-else row
+is for values that are not a percent struct.
 
 With a units catalog, pass `category:` for a quantity value (see
 [Optional units](#optional-units)):
@@ -88,7 +93,7 @@ context = Elex.new_context() |> Elex.add_variable!("price", 100)
 {:error, reason} = Elex.validate("price + \"oops\"", context)
 ```
 
-The returned type is one of `:decimal`, `:boolean`, `:string`, `nil` (for
+The returned type is one of `:decimal`, `:boolean`, `:string`, `:percent`, `nil` (for
 expressions whose result is `null`), or `%Elex.Dimension{}` when a units
 catalog is attached (`length`, `length | time`). See [Units](units.md).
 
