@@ -45,6 +45,11 @@ defmodule Elex.Functions.Min do
     {:ok, %Elex.Quantity{value: result, unit: unit}}
   end
 
+  def call([%Elex.Percent{} | _] = args) do
+    {:ok, result} = call(Enum.map(args, & &1.value))
+    {:ok, %Elex.Percent{value: result}}
+  end
+
   def call([first | rest]) do
     {:ok, Enum.reduce(rest, first, &Decimal.min/2)}
   end

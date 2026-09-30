@@ -38,6 +38,7 @@ Do not reuse `Elex.Parser.parse/3` for the incomplete prefix. NimbleParsec is al
 | Number | parser number (`digits`, optional `.digits`, optional `e/E` exponent **with a digit**). Unit suffix attaches only when this token is **complete** |
 | String | from `"` to closing `"` or EOF; escapes as in the expression language |
 | Operator / punct | `+ - * / < > = ! ( ) ,` including two-char `<= >= == !=` |
+| Percent suffix | `%` after a complete number. Token `{:percent, "%"}`. Not an operator. The following slot is `:none` |
 
 Whitespace is not part of the replacement range. Cursor in whitespace → empty token, `range: {cursor, cursor}`.
 

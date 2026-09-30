@@ -219,9 +219,8 @@ defmodule Elex.EvaluatorTest do
       assert parse_and_evaluate("10.5 / (2 / 0.5)") == Decimal.new("2.625")
     end
 
-    test "rejects % because it is not an operator" do
-      assert {:error, "unexpected '%'"} = Elex.evaluate("10 % 3", Elex.new_context())
-      assert {:error, "unexpected '%'"} = Elex.evaluate("1 %", Elex.new_context())
+    test "rejects % used as an operator" do
+      assert {:error, "unexpected '3'"} = Elex.evaluate("10 % 3", Elex.new_context())
       assert {:error, "unexpected '%'"} = Elex.evaluate("% 1", Elex.new_context())
     end
 

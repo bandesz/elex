@@ -45,6 +45,11 @@ defmodule Elex.Functions.Abs do
     {:ok, %Elex.Quantity{value: result, unit: unit}}
   end
 
+  def call([%Elex.Percent{value: value}]) do
+    {:ok, result} = call([value])
+    {:ok, %Elex.Percent{value: Decimal.normalize(result)}}
+  end
+
   def call([arg]) when is_struct(arg, Decimal) do
     {:ok, Decimal.abs(arg)}
   end

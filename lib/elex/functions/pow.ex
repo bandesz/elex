@@ -26,17 +26,20 @@ defmodule Elex.Functions.Pow do
   def validate([arg1_ast, arg2_ast], context) do
     alias Elex.Validator
 
-    with {:ok, :decimal} <- Validator.validate(arg1_ast, context),
-         {:ok, :decimal} <- Validator.validate(arg2_ast, context) do
-      {:ok, :decimal}
-    else
-      {:ok, other_type} -> {:error, "pow function expects number arguments, #{got(other_type)}"}
-      {:error, reason} -> {:error, reason}
+    with {:ok, base_type} <- Validator.validate(arg1_ast, context),
+         {:ok, exponent_type} <- Validator.validate(arg2_ast, context) do
+      validate_pow_types(base_type, exponent_type)
     end
   end
 
   @impl Function
   @doc false
+  def call([%Elex.Percent{value: points}, %Decimal{} = exponent]) do
+    {:ok, result} = call([Decimal.div(points, Decimal.new(100)), exponent])
+
+    {:ok, %Elex.Percent{value: result |> Decimal.mult(Decimal.new(100)) |> Decimal.normalize()}}
+  end
+
   def call([%Decimal{} = base, %Decimal{} = exponent]) do
     {:ok, pow(base, exponent)}
   end
@@ -49,6 +52,22 @@ defmodule Elex.Functions.Pow do
       description: "returns base raised to the power of exponent",
       category: :math
     }
+  end
+
+  defp validate_pow_types(base_type, exponent_type) do
+    cond do
+      base_type not in [:decimal, :percent] ->
+        {:error, "pow function expects number arguments, #{got(base_type)}"}
+
+      exponent_type == :percent ->
+        {:error, "pow function expects a number exponent, #{got(:percent)}"}
+
+      exponent_type != :decimal ->
+        {:error, "pow function expects number arguments, #{got(exponent_type)}"}
+
+      true ->
+        {:ok, base_type}
+    end
   end
 
   defp pow(base, exponent) do

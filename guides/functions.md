@@ -19,8 +19,10 @@ functions in `Elex.evaluate/2`.
 | `pow(base, exp)` | Exponentiation (`base` raised to `exp`) |
 | `rem(a, b)` | Remainder; sign follows the dividend |
 | `mod(a, b)` | Floored modulo; sign follows the divisor |
-| `max(a, b, …)` | Largest of two or more numbers or same-category quantities (variadic) |
-| `min(a, b, …)` | Smallest of two or more numbers or same-category quantities (variadic) |
+| `inc(value, rate)` | Increase `value` by a percent rate (`value * (100% + rate)`) |
+| `dec(value, rate)` | Decrease `value` by a percent rate (`value * (100% - rate)`) |
+| `max(a, b, …)` | Largest of two or more numbers, percents, or same-category quantities (variadic) |
+| `min(a, b, …)` | Smallest of two or more numbers, percents, or same-category quantities (variadic) |
 | `clamp(x, min, max)` | Clamp `x` to an inclusive `[min, max]` range |
 | `convert(value, unit)` | Convert a quantity into a named unit or formula (in-expression `unit:`) |
 | `add_unit(value, unit)` | Wrap a number as a quantity of a registered name or alias |
@@ -97,7 +99,22 @@ that need the same behaviour set the same `units:` values.
 and `coalesce` declare `units: :point`. They keep the argument’s unit and
 operate on the current magnitude, including non-additive points
 (`floor(1.8C)` is `1 C`). `sqrt`, `pow`, `pi`, `rem`, `mod`,
-and the string functions declare `units: :none`.
+and the string functions declare `units: :none`. `inc` and `dec` declare
+`units: :additive`.
+
+### Percent
+
+`pow`, `abs`, `round`, `min`, `max`, `clamp`, `between`,
+`coalesce`, and `if` accept a percent.
+`pow(50%, 2)` is `25%`. `floor` and `ceil`
+follow `round`: they operate on the percent points and keep a percent.
+`sqrt`, `rem`, and `mod` do not.
+
+`inc(value, rate)` is `value * (100% + rate)` and `dec(value, rate)` is
+`value * (100% - rate)`. `rate` must be a percent. `inc(100, 10%)` is
+`110` and `dec(100, 10%)` is `90`. A quantity keeps its unit
+(`inc(100cm, 10%)` is `110cm`). A percent stays a percent
+(`inc(50%, 10%)` is `55%`). A non-additive quantity is rejected.
 
 ### `add_unit` and `remove_unit`
 

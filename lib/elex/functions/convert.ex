@@ -69,7 +69,7 @@ defmodule Elex.Functions.Convert do
   end
 
   defp unitful_category?(type) do
-    Validator.numeric_type?(type) and type != :decimal
+    Validator.numeric_type?(type) and type not in [:decimal, :percent]
   end
 
   defp resolve_target(target, _context) when is_binary(target), do: {:ok, target}

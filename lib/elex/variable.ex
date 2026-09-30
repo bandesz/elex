@@ -8,17 +8,18 @@ defmodule Elex.Variable do
 
   ## Fields
 
-  - `:type` - One of `:decimal`, `:boolean`, `:string`, `nil`, `:unknown`, or a
-    unit category atom such as `:length`
+  - `:type` - One of `:decimal`, `:boolean`, `:string`, `:percent`, `nil`,
+    `:unknown`, or a unit category atom such as `:length`
   - `:value` - The runtime value (`Decimal.t()`, `boolean()`, `String.t()`,
-    `{number, unit}` or [`Elex.Quantity.t()`](Elex.Quantity) for a categorized
-    quantity, etc.)
+    [`Elex.Percent.t()`](Elex.Percent), `{number, unit}` or
+    [`Elex.Quantity.t()`](Elex.Quantity) for a categorized quantity, etc.)
 
   ## Examples
 
       %Elex.Variable{value: Decimal.new("3.14"), type: :decimal}
       %Elex.Variable{value: true, type: :boolean}
       %Elex.Variable{value: "hello", type: :string}
+      %Elex.Variable{value: %Elex.Percent{value: Decimal.new("50")}, type: :percent}
 
   Use `Elex.add_variable/3` to infer the type from a value.
   """

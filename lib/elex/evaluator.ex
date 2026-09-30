@@ -15,6 +15,7 @@ defmodule Elex.Evaluator do
 
   """
   alias Elex.Context
+  alias Elex.Percent
   alias Elex.Quantity
   alias Elex.Unit
   alias Elex.Units.Catalog
@@ -33,7 +34,7 @@ defmodule Elex.Evaluator do
   ## Returns
 
   - `{:ok, result}` - The evaluated result (`Decimal.t()`, `boolean()`, `String.t()`,
-    `nil`, or [`Elex.Quantity.t()`](Elex.Quantity))
+    `nil`, [`Elex.Quantity.t()`](Elex.Quantity), or [`%Elex.Percent{}`](Elex.Percent))
   - `{:error, reason}` - A human-readable error message
 
   ## Examples
@@ -45,7 +46,8 @@ defmodule Elex.Evaluator do
 
   """
   @spec evaluate(term(), Context.t()) ::
-          {:ok, Decimal.t() | boolean() | String.t() | nil | Quantity.t()} | {:error, String.t()}
+          {:ok, Decimal.t() | boolean() | String.t() | nil | Quantity.t() | Percent.t()}
+          | {:error, String.t()}
   def evaluate(ast, ctx) do
     {:ok, evaluate!(ast, ctx)}
   rescue
@@ -66,10 +68,14 @@ defmodule Elex.Evaluator do
 
   """
   @spec evaluate!(term(), Context.t()) ::
-          Decimal.t() | boolean() | String.t() | nil | Quantity.t()
+          Decimal.t() | boolean() | String.t() | nil | Quantity.t() | Percent.t()
   def evaluate!(ast, ctx)
 
   def evaluate!(%Decimal{} = decimal, _ctx), do: decimal
+
+  def evaluate!({:percent, %Decimal{} = decimal}, _ctx) do
+    %Percent{value: Decimal.normalize(decimal)}
+  end
 
   def evaluate!({:unit, %Decimal{} = decimal, symbol}, ctx) when is_binary(symbol) do
     quantity(decimal, result_unit(symbol, ctx))
@@ -96,6 +102,9 @@ defmodule Elex.Evaluator do
       %Decimal{} = decimal ->
         Decimal.negate(decimal)
 
+      %Percent{value: value} ->
+        %Percent{value: value |> Decimal.negate() |> Decimal.normalize()}
+
       %Quantity{value: value, unit: unit} ->
         quantity(Decimal.negate(value), unit)
 
@@ -118,6 +127,9 @@ defmodule Elex.Evaluator do
       {_left, %Quantity{} = right} ->
         raise "cannot add number and #{category_label(right, ctx)}"
 
+      {%Percent{value: left}, %Percent{value: right}} ->
+        %Percent{value: left |> Decimal.add(right) |> Decimal.normalize()}
+
       {left, right} ->
         Decimal.add(left, right)
     end
@@ -138,28 +150,35 @@ defmodule Elex.Evaluator do
       {%Quantity{} = left, _right} ->
         raise "cannot subtract number from #{category_label(left, ctx)}"
 
+      {%Percent{value: left}, %Percent{value: right}} ->
+        %Percent{value: left |> Decimal.sub(right) |> Decimal.normalize()}
+
       {left, right} ->
         Decimal.add(left, Decimal.negate(right))
     end
   end
 
   def evaluate!({:*, [left_ast, right_ast]}, ctx) do
-    case {evaluate!(left_ast, ctx), evaluate!(right_ast, ctx)} do
+    case coerce_percent_scale(evaluate!(left_ast, ctx), evaluate!(right_ast, ctx)) do
       {%Quantity{} = left, %Quantity{} = right} ->
         reject_non_additive!(left, ctx, "'*' or '/'")
         reject_non_additive!(right, ctx, "'*' or '/'")
         multiply_quantities(left, right, ctx)
 
-      {%Quantity{} = quantity, scalar} when not is_struct(scalar, Quantity) ->
-        reject_non_additive!(quantity, ctx, "'*' or '/'")
-        quantity(Decimal.mult(quantity.value, scalar), quantity.unit)
+      {%Percent{} = percent, %Decimal{} = decimal} ->
+        scale_by_percent(decimal, percent)
 
-      {scalar, %Quantity{} = quantity} when not is_struct(scalar, Quantity) ->
-        reject_non_additive!(quantity, ctx, "'*' or '/'")
-        quantity(Decimal.mult(scalar, quantity.value), quantity.unit)
+      {%Decimal{} = decimal, %Percent{} = percent} ->
+        scale_by_percent(decimal, percent)
+
+      {%Quantity{} = quantity, %Percent{} = percent} ->
+        scale_quantity_by_percent(quantity, percent, ctx)
+
+      {%Percent{} = percent, %Quantity{} = quantity} ->
+        scale_quantity_by_percent(quantity, percent, ctx)
 
       {left, right} ->
-        Decimal.mult(left, right)
+        multiply_scalars(left, right, ctx)
     end
   end
 
@@ -212,6 +231,7 @@ defmodule Elex.Evaluator do
     case {left, right} do
       {%Decimal{}, %Decimal{}} -> Decimal.compare(left, right) == :eq
       {%Quantity{}, %Quantity{}} -> compare(left, right, ctx) == :eq
+      {%Percent{}, %Percent{}} -> compare(left, right, ctx) == :eq
       {_, _} -> left == right
     end
   end
@@ -228,6 +248,7 @@ defmodule Elex.Evaluator do
     case {left, right} do
       {%Decimal{}, %Decimal{}} -> Decimal.compare(left, right) != :eq
       {%Quantity{}, %Quantity{}} -> compare(left, right, ctx) != :eq
+      {%Percent{}, %Percent{}} -> compare(left, right, ctx) != :eq
       {_, _} -> left != right
     end
   end
@@ -257,7 +278,7 @@ defmodule Elex.Evaluator do
         quantity(quantity.value, quantity.unit)
 
       value ->
-        value
+        decimal_value(value)
     end
   end
 
@@ -276,7 +297,7 @@ defmodule Elex.Evaluator do
         call_function(function_module, evaluated_args, ctx)
       end
 
-    unwrap_call_result(result, name, arity)
+    result |> unwrap_call_result(name, arity) |> decimal_value()
   end
 
   @doc false
@@ -298,6 +319,13 @@ defmodule Elex.Evaluator do
   end
 
   def align_to_unit(value, _unit, _ctx), do: value
+
+  @doc false
+  def align_percent_zero(%Decimal{} = decimal, {:ok, :percent}, ctx) do
+    wrap_unitless_zero(decimal, %Percent{value: Decimal.new(0)}, ctx)
+  end
+
+  def align_percent_zero(value, _unified, _ctx), do: value
 
   @doc false
   def validate_conversion(from_category, to_unit, ctx)
@@ -568,6 +596,22 @@ defmodule Elex.Evaluator do
     end
   end
 
+  defp compare(%Percent{} = left, %Percent{} = right, _ctx) do
+    Decimal.compare(left.value, right.value)
+  end
+
+  defp compare(%Percent{} = left, %Decimal{} = right, ctx) do
+    case wrap_unitless_zero(right, left, ctx) do
+      %Percent{} = wrapped -> compare(left, wrapped, ctx)
+    end
+  end
+
+  defp compare(%Decimal{} = left, %Percent{} = right, ctx) do
+    case wrap_unitless_zero(left, right, ctx) do
+      %Percent{} = wrapped -> compare(wrapped, right, ctx)
+    end
+  end
+
   defp compare(left, right, _ctx) when is_binary(left) and is_binary(right) do
     cond do
       left < right -> :lt
@@ -598,7 +642,9 @@ defmodule Elex.Evaluator do
         align_to_first_quantity(args, ctx)
 
       :point ->
-        align_to_first_quantity(args, ctx)
+        args
+        |> align_to_first_quantity(ctx)
+        |> wrap_percent_point_zeros(ctx)
     end
   end
 
@@ -606,6 +652,15 @@ defmodule Elex.Evaluator do
     case Enum.find(args, &match?(%Quantity{}, &1)) do
       %Quantity{unit: unit} -> Enum.map(args, &align_to_unit(&1, unit, ctx))
       _ -> args
+    end
+  end
+
+  defp wrap_percent_point_zeros(args, ctx) do
+    if Enum.any?(args, &match?(%Percent{}, &1)) do
+      zero = %Percent{value: Decimal.new(0)}
+      Enum.map(args, &wrap_unitless_zero(&1, zero, ctx))
+    else
+      args
     end
   end
 
@@ -672,6 +727,14 @@ defmodule Elex.Evaluator do
     end
   end
 
+  defp wrap_unitless_zero(%Decimal{} = decimal, %Percent{}, _ctx) do
+    if Decimal.compare(decimal, 0) == :eq do
+      %Percent{value: Decimal.normalize(decimal)}
+    else
+      decimal
+    end
+  end
+
   defp wrap_unitless_zero(value, _other, _ctx), do: value
 
   defp additive_quantity?(%Quantity{unit: unit}, ctx), do: additive_unit?(unit, ctx)
@@ -701,6 +764,45 @@ defmodule Elex.Evaluator do
       {:ok, category} -> label(category)
       {:error, _} -> "unit"
     end
+  end
+
+  defp scale_quantity_by_percent(%Quantity{} = quantity, %Percent{} = percent, ctx) do
+    reject_non_additive!(quantity, ctx, "'*' or '/'")
+    quantity(scale_by_percent(quantity.value, percent), quantity.unit)
+  end
+
+  defp coerce_percent_scale(left, right), do: {left, right}
+
+  defp scale_by_percent(%Decimal{} = magnitude, %Percent{value: points}) do
+    magnitude
+    |> Decimal.mult(points)
+    |> Decimal.div(Decimal.new(100))
+  end
+
+  defp multiply_scalars(%Percent{value: left}, %Percent{value: right}, _ctx) do
+    %Percent{
+      value:
+        left
+        |> Decimal.mult(right)
+        |> Decimal.div(100)
+        |> Decimal.normalize()
+    }
+  end
+
+  defp multiply_scalars(%Quantity{} = quantity, scalar, ctx)
+       when not is_struct(scalar, Quantity) do
+    reject_non_additive!(quantity, ctx, "'*' or '/'")
+    quantity(Decimal.mult(quantity.value, scalar), quantity.unit)
+  end
+
+  defp multiply_scalars(scalar, %Quantity{} = quantity, ctx)
+       when not is_struct(scalar, Quantity) do
+    reject_non_additive!(quantity, ctx, "'*' or '/'")
+    quantity(Decimal.mult(scalar, quantity.value), quantity.unit)
+  end
+
+  defp multiply_scalars(left, right, _ctx) do
+    Decimal.mult(left, right)
   end
 
   defp multiply_quantities(left, right, ctx) do
@@ -936,6 +1038,7 @@ defmodule Elex.Evaluator do
   end
 
   defp result_kind(%Decimal{}), do: label(:decimal)
+  defp result_kind(%Percent{}), do: label(:percent)
   defp result_kind(value) when is_boolean(value), do: label(:boolean)
   defp result_kind(value) when is_binary(value), do: label(:string)
   defp result_kind(nil), do: label(nil)
@@ -1043,6 +1146,10 @@ defmodule Elex.Evaluator do
   defp to_decimal(%Decimal{} = decimal), do: decimal
   defp to_decimal(n) when is_integer(n), do: Decimal.new(n)
   defp to_decimal(n) when is_float(n), do: Decimal.from_float(n)
+
+  defp decimal_value(n) when is_integer(n), do: Decimal.new(n)
+  defp decimal_value(n) when is_float(n), do: Decimal.from_float(n)
+  defp decimal_value(value), do: value
 
   defp humanize_decimal_error(%Decimal.Error{} = error) do
     error |> Exception.message() |> String.replace("_", " ")

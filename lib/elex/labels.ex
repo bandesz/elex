@@ -52,7 +52,7 @@ defmodule Elex.Labels do
   Formats a `got …` clause for function type errors.
 
   Primitive types stay `got decimal`. Category atoms become `got length quantity`
-  so `length(1m)` is not read as a tautology.
+  so `length(1m)` is not read as a tautology. Percent is `got percent`.
 
   ## Examples
 
@@ -62,11 +62,15 @@ defmodule Elex.Labels do
       got(:length)
       #=> "got length quantity"
 
+      got(:percent)
+      #=> "got percent"
+
   """
   def got(nil), do: "got empty"
   def got(type) when type in [:decimal, :string, :boolean], do: "got #{type}"
   def got({:dim, dim}) when is_map(dim), do: got(%Elex.Dimension{monomial: dim})
   def got(%Elex.Dimension{monomial: monomial}) when map_size(monomial) == 0, do: "got number"
   def got(%Elex.Dimension{} = dim), do: "got #{dim} quantity"
+  def got(:percent), do: "got percent"
   def got(type) when is_atom(type), do: "got #{type} quantity"
 end

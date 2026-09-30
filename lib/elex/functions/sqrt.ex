@@ -27,9 +27,14 @@ defmodule Elex.Functions.Sqrt do
     alias Elex.Validator
 
     case Validator.validate(arg_ast, context) do
-      {:ok, :decimal} -> {:ok, :decimal}
-      {:ok, other_type} -> {:error, "sqrt function expects a number argument, #{got(other_type)}"}
-      {:error, reason} -> {:error, reason}
+      {:ok, :decimal} ->
+        {:ok, :decimal}
+
+      {:ok, other_type} ->
+        {:error, "sqrt function expects a number argument, #{got(other_type)}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

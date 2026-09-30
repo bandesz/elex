@@ -52,6 +52,9 @@ defmodule Elex.Inverter do
     variables = collect_variables(ast)
 
     cond do
+      contains_percent?(ast) ->
+        raise "cannot invert an expression that contains a percent"
+
       length(variables) > 1 ->
         raise "Expression contains multiple variables: #{Enum.join(variables, ", ")}. Only single-variable expressions can be inverted."
 
@@ -243,6 +246,21 @@ defmodule Elex.Inverter do
   defp replace_target_var(literal, _target_var, _replacement) do
     literal
   end
+
+  defp contains_percent?({:percent, _}), do: true
+
+  defp contains_percent?({op, [left, right]})
+       when op in [:+, :-, :*, :/, :<, :>, :<=, :>=, :==, :!=, :and, :or] do
+    contains_percent?(left) or contains_percent?(right)
+  end
+
+  defp contains_percent?({:not, operand}), do: contains_percent?(operand)
+
+  defp contains_percent?({:-, operand}) when not is_list(operand), do: contains_percent?(operand)
+
+  defp contains_percent?({:func, _name, _arity, args}), do: Enum.any?(args, &contains_percent?/1)
+
+  defp contains_percent?(_), do: false
 
   # Helper function to check if an AST contains the target variable
   defp contains_variable?({:var, name}, target_var) do

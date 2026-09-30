@@ -46,6 +46,13 @@ defmodule Elex.Functions.Clamp do
     end
   end
 
+  def call([%Elex.Percent{} | _] = args) do
+    case call(Enum.map(args, & &1.value)) do
+      {:ok, result} -> {:ok, %Elex.Percent{value: result}}
+      {:error, _} = err -> err
+    end
+  end
+
   def call([%Decimal{} = value, %Decimal{} = min, %Decimal{} = max]) do
     if Decimal.compare(min, max) == :gt do
       {:error, "clamp min must be less than or equal to max"}
