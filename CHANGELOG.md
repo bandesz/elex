@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-01
+
+### Breaking
+
+- The `%` remainder operator and `rem(a, b)` are removed. `%` is now a percent suffix, so `10 % 3` is no longer valid. Use `mod(a, b)` (sign follows the divisor).
+
 ### Added
 
 - A `%` suffix on a number literal is a percent (`50%` stores 50 percent points). `10% + 20%` is 30%, `50% * 50%` is 25%, and `100 * 50%` is the number 50
 - `inc(value, rate)` and `dec(value, rate)` scale a number, quantity, or percent by `100% + rate` and `100% - rate`. `rate` must be a percent
-
-### Removed
-
-- The `%` remainder operator and `rem(a, b)`. Use `mod(a, b)` (sign follows the divisor)
 
 ## [0.3.4] - 2026-09-23
 
@@ -160,6 +162,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.4.0]: https://github.com/bandesz/elex/releases/tag/v0.4.0
 [0.3.4]: https://github.com/bandesz/elex/releases/tag/v0.3.4
 [0.3.3]: https://github.com/bandesz/elex/releases/tag/v0.3.3
 [0.3.2]: https://github.com/bandesz/elex/releases/tag/v0.3.2

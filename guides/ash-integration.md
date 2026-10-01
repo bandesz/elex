@@ -11,7 +11,7 @@ Add both Elex and Ash to your dependencies:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.3.4"},
+    {:elex, "~> 0.4.0"},
     {:ash, "~> 3.22"}
   ]
 end

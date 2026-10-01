@@ -10,7 +10,7 @@ Add `elex` to your `mix.exs` dependencies:
 ```elixir
 def deps do
   [
-    {:elex, "~> 0.3.4"}
+    {:elex, "~> 0.4.0"}
   ]
 end
 ```

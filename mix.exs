@@ -4,7 +4,7 @@ defmodule Elex.MixProject do
   def project do
     [
       app: :elex,
-      version: "0.3.4",
+      version: "0.4.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
