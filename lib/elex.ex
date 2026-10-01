@@ -14,7 +14,7 @@ defmodule Elex do
   - Variables and built-in functions (`abs`, `add_unit`, `between`, `ceil`,
     `clamp`, `coalesce`, `concat`, `contains`, `convert`, `dec`, `ends_with`,
     `floor`, `if`, `inc`, `length`, `lower`, `match`, `max`, `min`, `mod`, `pi`,
-    `pow`, `rem`, `remove_unit`, `round`, `sqrt`, `starts_with`, `trim`,
+    `pow`, `remove_unit`, `round`, `sqrt`, `starts_with`, `trim`,
     `upper`)
   - Variadic `min`, `max`, and `coalesce` (two or more arguments) and
     `concat` (zero or more arguments)
@@ -89,7 +89,6 @@ defmodule Elex do
     Elex.Functions.Mod,
     Elex.Functions.Pi,
     Elex.Functions.Pow,
-    Elex.Functions.Rem,
     Elex.Functions.RemoveUnit,
     Elex.Functions.Round,
     Elex.Functions.Sqrt,

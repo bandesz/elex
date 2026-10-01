@@ -137,8 +137,7 @@ for magnitude arithmetic. `*` and `/` scale a quantity by a number,
 or combine two quantities (same-category factors convert into the left unit
 first). Same-dimension division cancels to a decimal (`1m / 1m` → `1`;
 `1ha / 1 {m^2}` → `10000` when hectare is registered with a scale from
-square metres). Remainder is `rem(a, b)` (sign follows the dividend).
-For floored modulo, use `mod(a, b)`.
+square metres). Modulo is `mod(a, b)` (sign follows the divisor).
 
 ### Comparisons
 

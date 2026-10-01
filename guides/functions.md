@@ -17,7 +17,6 @@ functions in `Elex.evaluate/2`.
 | `round(x)` | Round to the nearest integer |
 | `sqrt(x)` | Square root |
 | `pow(base, exp)` | Exponentiation (`base` raised to `exp`) |
-| `rem(a, b)` | Remainder; sign follows the dividend |
 | `mod(a, b)` | Floored modulo; sign follows the divisor |
 | `inc(value, rate)` | Increase `value` by a percent rate (`value * (100% + rate)`) |
 | `dec(value, rate)` | Decrease `value` by a percent rate (`value * (100% - rate)`) |
@@ -31,19 +30,10 @@ functions in `Elex.evaluate/2`.
 | `pi()` | Mathematical constant π |
 | `if(cond, a, b)` | Conditional; short-circuits; both branches must share a type |
 
-### `rem` vs `mod`
+### `mod`
 
-Both divide decimals, and they differ in how they handle signs:
-
-```elixir
-# rem — sign follows the dividend
-Elex.evaluate("rem(-10, 3)", context)   # #Decimal<-1>
-
-# mod — sign follows the divisor (floored modulo)
-Elex.evaluate("mod(-10, 3)", context)   # #Decimal<2>
-```
-
-`rem` and `mod` reject unitful arguments.
+`mod(a, b)` is floored modulo. The sign follows the divisor, so
+`mod(-10, 3)` is `2`. `mod` rejects unitful arguments.
 
 ### `clamp` and `between`
 
@@ -98,7 +88,7 @@ that need the same behaviour set the same `units:` values.
 `abs`, `ceil`, `floor`, `round`, `min`, `max`, `clamp`, `between`, `if`,
 and `coalesce` declare `units: :point`. They keep the argument’s unit and
 operate on the current magnitude, including non-additive points
-(`floor(1.8C)` is `1 C`). `sqrt`, `pow`, `pi`, `rem`, `mod`,
+(`floor(1.8C)` is `1 C`). `sqrt`, `pow`, `pi`, `mod`,
 and the string functions declare `units: :none`. `inc` and `dec` declare
 `units: :additive`.
 
@@ -108,7 +98,7 @@ and the string functions declare `units: :none`. `inc` and `dec` declare
 `coalesce`, and `if` accept a percent.
 `pow(50%, 2)` is `25%`. `floor` and `ceil`
 follow `round`: they operate on the percent points and keep a percent.
-`sqrt`, `rem`, and `mod` do not.
+`sqrt` and `mod` do not.
 
 `inc(value, rate)` is `value * (100% + rate)` and `dec(value, rate)` is
 `value * (100% - rate)`. `rate` must be a percent. `inc(100, 10%)` is

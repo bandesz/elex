@@ -73,7 +73,6 @@ Canonical behaviour for percent values. Actor is always a **library caller**.
 **Error paths:**
 
 - `"100% / 2"`, `"2 / 100%"`, `"100% / 50%"`, `"100cm / 50%"`, and `"50% / 100cm"` → `cannot divide with a percent`
-- `"rem(10%, 3)"` and `"rem(10, 3%)"` → `rem function expects number arguments, got percent`
 - `"mod(10%, 3)"` → `mod function expects number arguments, got percent`
 
 ## Flow 5: Comparisons

@@ -22,7 +22,7 @@ Complete.
 
 ## Problem
 
-Callers write rates as percents (`100 * 50%`, `10% + 20%`, `100cm * 50%`). The `%` remainder operator was removed so the character can be this suffix. Remainder stays `rem/2`. Modulo stays `mod/2`.
+Callers write rates as percents (`100 * 50%`, `10% + 20%`, `100cm * 50%`). The `%` remainder operator and `rem/2` were removed so `%` can be this suffix. Modulo is `mod/2`.
 
 ## Constraints
 
@@ -65,7 +65,7 @@ Callers write rates as percents (`100 * 50%`, `10% + 20%`, `100cm * 50%`). The `
 - A postfix `%` on an arbitrary decimal (`(10+20)%`, `rate%`)
 - Calculator sugar (`100 + 10%` meaning `110`)
 - Any division that touches a percent
-- `rem` and `mod` on a percent
+- `mod` on a percent
 - `sqrt` of a percent
 - Inverting an expression that contains a percent
 - Suggesting `%` from autocomplete
@@ -74,7 +74,7 @@ Callers write rates as percents (`100 * 50%`, `10% + 20%`, `100cm * 50%`). The `
 
 ## Public surface
 
-Compatibility is **additive**. Expressions that do not use `%` are unchanged. `rem/2` remains the remainder function. Who can call: any library caller.
+Expressions that do not use `%` or `rem` are unchanged. Modulo is `mod/2` (sign follows the divisor). Who can call: any library caller.
 
 | Surface | Contract |
 |---|---|
@@ -107,7 +107,7 @@ Parser: `literal_number` already accepts an optional leading minus, fraction, an
 
 Validator: `{:percent, _}` types as `:percent`. Clauses that treat every other atom as a unit category skip `:percent`. Add, subtract, and compare have explicit percent clauses for the messages in the flows. `/` errors with `cannot divide with a percent` when either operand’s type is `:percent`, before dimension math. `same_numeric_type/2` treats `:percent` as numeric and reuses the literal-zero helper, wrapping the result type as `:percent`.
 
-Evaluator: `{:percent, decimal}` becomes `%Elex.Percent{value: normalized points}`. Binary `+` and `-` require two percents and add points. Binary `*` scales as in Decision 3, using `Decimal` division by 100. Unary minus of a percent negates the points. Comparisons order the points. Literal zero is wrapped to `Percent 0` before compare and before `:point` calls, matching quantity alignment. `pow` converts to a fraction, calls the existing decimal implementation, and multiplies a percent result by 100. `round`, `floor`, `ceil`, and `abs` operate on points and rewrap. `sqrt`, `rem`, and `mod` stay decimal-only.
+Evaluator: `{:percent, decimal}` becomes `%Elex.Percent{value: normalized points}`. Binary `+` and `-` require two percents and add points. Binary `*` scales as in Decision 3, using `Decimal` division by 100. Unary minus of a percent negates the points. Comparisons order the points. Literal zero is wrapped to `Percent 0` before compare and before `:point` calls, matching quantity alignment. `pow` converts to a fraction, calls the existing decimal implementation, and multiplies a percent result by 100. `round`, `floor`, `ceil`, and `abs` operate on points and rewrap. `sqrt` and `mod` stay decimal-only.
 
 `result_kind` of a percent is `percent`, so `unit:` says `cannot convert percent to a unit`. `match_optional_category/3` already labels non-dimensions via `Labels.label/1`, which yields `length was expected, got percent` once `:percent` is not a dimension.
 
@@ -136,7 +136,7 @@ Library ExUnit and unit TDD (`test-driven-development`). No UI flow tests. Lengt
 | 2 | `test/elex/expression/percent_scale_test.exs` | 2.1 |
 | 3 | `test/elex/expression/percent_arithmetic_test.exs` | 2.2 |
 | 4 division | `test/elex/expression/percent_arithmetic_test.exs` | 2.3 |
-| 4 `rem` / `mod` | `test/elex/expression/percent_remainder_test.exs` | 3.3 |
+| 4 `mod` | `test/elex/expression/percent_remainder_test.exs` | 3.3 |
 | 5 | `test/elex/expression/percent_compare_test.exs` | 2.4 |
 | 6 | `test/elex/expression/percent_minmax_test.exs` | 2.5 |
 | 7 | `test/elex/expression/percent_if_test.exs` | 2.6 |
@@ -157,7 +157,7 @@ Coverage checklist updates belong to `implementing-design` Phase 4, not a separa
 - [x] Flow 2 scaling
 - [x] Flow 3 percent arithmetic and mixed add/sub
 - [x] Flow 4 division
-- [x] Flow 4 `rem` / `mod`
+- [x] Flow 4 `mod`
 - [x] Flow 5 comparisons and literal zero
 - [x] Flow 6 `min` / `max` / `clamp` / `between`
 - [x] Flow 7 `if` / `coalesce`
@@ -211,7 +211,7 @@ Coverage checklist updates belong to `implementing-design` Phase 4, not a separa
 
 **Status:** done
 
-**Scope:** Scaling, percent `+` `-` `*`, the division ban, comparisons, and literal zero in comparisons and in `min`, `max`, `clamp`, `between`, `if`, and `coalesce`. Excludes `pow`, `sqrt`, `abs`, `round`, `floor`, `ceil`, `rem`, `mod`, variables, Ash, invert, and autocomplete.
+**Scope:** Scaling, percent `+` `-` `*`, the division ban, comparisons, and literal zero in comparisons and in `min`, `max`, `clamp`, `between`, `if`, and `coalesce`. Excludes `pow`, `sqrt`, `abs`, `round`, `floor`, `ceil`, `mod`, variables, Ash, invert, and autocomplete.
 
 ### Task 2.1: Scale a number or a quantity
 
@@ -251,7 +251,7 @@ Coverage checklist updates belong to `implementing-design` Phase 4, not a separa
 - Domain skills: `test-driven-development`
 - Acceptance:
   - Flow 4 division error paths all return `cannot divide with a percent`
-- Out of scope: `rem` and `mod` (Task 3.3)
+- Out of scope: `mod` (Task 3.3)
 
 ### Task 2.4: Comparisons and literal zero
 
@@ -329,7 +329,7 @@ Coverage checklist updates belong to `implementing-design` Phase 4, not a separa
   - Flow 9 error paths
 - Out of scope: `round`
 
-### Task 3.3: Reject `rem` and `mod`
+### Task 3.3: Reject `mod`
 
 **Status:** done — `0151c13`
 
@@ -339,7 +339,7 @@ Coverage checklist updates belong to `implementing-design` Phase 4, not a separa
 - Verify: `mix test test/elex/expression/percent_remainder_test.exs`
 - Domain skills: `test-driven-development`
 - Acceptance:
-  - Flow 4 `rem` and `mod` error paths
+  - Flow 4 `mod` error path
 - Out of scope: division (Task 2.3)
 
 ### Task 3.4: Percent variables
@@ -421,7 +421,7 @@ Coverage checklist updates belong to `implementing-design` Phase 4, not a separa
 - Domain skills: none
 - Acceptance:
   - Expression-language guide documents the `%` suffix, percent `+` `-` `*`, the division ban, and literal `0`
-  - Functions guide states that `pow` / `abs` / `round` / `min` / `if` accept a percent, and that `sqrt` / `rem` / `mod` do not
+  - Functions guide states that `pow` / `abs` / `round` / `min` / `if` accept a percent, and that `sqrt` / `mod` do not
   - `function.ex` documents that literal `0` next to a percent follows the quantity rule for `same_numeric_type/2`
   - README shows `100 * 50%` evaluating to `50` and does not call `%` a remainder operator
   - Unreleased changelog records the percent suffix under Added

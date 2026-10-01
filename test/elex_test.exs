@@ -47,7 +47,6 @@ defmodule ElexTest do
                "mod",
                "pi",
                "pow",
-               "rem",
                "remove_unit",
                "round",
                "sqrt",
@@ -55,6 +54,11 @@ defmodule ElexTest do
                "trim",
                "upper"
              ]
+    end
+
+    test "rem is not a built-in" do
+      assert Elex.evaluate("rem(10, 3)", Elex.new_context()) ==
+               {:error, "unknown function rem/2"}
     end
   end
 

@@ -601,12 +601,7 @@ defmodule Elex.Units.FunctionsTest do
     end
   end
 
-  describe "remainder operators reject unit-bearing arguments" do
-    test "rem of two quantities is an error", %{ctx: ctx} do
-      assert {:error, message} = Elex.validate("rem(1m, 2m)", ctx)
-      assert message == "rem function expects number arguments, got length quantity"
-    end
-
+  describe "mod rejects unit-bearing arguments" do
     test "mod of two quantities is an error", %{ctx: ctx} do
       assert {:error, message} = Elex.validate("mod(1m, 2m)", ctx)
       assert message == "mod function expects number arguments, got length quantity"
@@ -617,19 +612,9 @@ defmodule Elex.Units.FunctionsTest do
       assert message == "unexpected '%'"
     end
 
-    test "rem of a quantity and a number is an error", %{ctx: ctx} do
-      assert {:error, message} = Elex.validate("rem(1m, 2)", ctx)
-      assert message == "rem function expects number arguments, got length quantity"
-    end
-
     test "% of a quantity and a number is an unexpected character", %{ctx: ctx} do
       assert {:error, message} = Elex.validate("1m % 2", ctx)
       assert message == "unexpected '%'"
-    end
-
-    test "evaluate rejects rem of quantities", %{ctx: ctx} do
-      assert {:error, message} = Elex.evaluate("rem(1m, 2m)", ctx)
-      assert message == "rem function expects number arguments, got length quantity"
     end
 
     test "mod of a number and a quantity is an error", %{ctx: ctx} do
@@ -659,7 +644,6 @@ defmodule Elex.Units.FunctionsTest do
       for module <- [
             Elex.Functions.Sqrt,
             Elex.Functions.Pow,
-            Elex.Functions.Rem,
             Elex.Functions.Mod,
             Elex.Functions.Concat,
             Elex.Functions.Length,
