@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- The `%` remainder operator. Use `rem(a, b)` (sign follows the dividend) or `mod(a, b)` (sign follows the divisor)
+- The `%` remainder operator and `rem(a, b)`. Use `mod(a, b)` (sign follows the divisor)
 
 ## [0.3.4] - 2026-09-23
 

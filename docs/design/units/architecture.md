@@ -89,7 +89,7 @@ Elex.evaluate(expr, ctx, unit: "km | h")
 |---|---|---|
 | `:point` | Same category. Additive: convert later args into the first (then-branch for `if`). Non-additive: `Unit.same?` required; no silent convert. | `abs`, `ceil`, `floor`, `round`, `min`, `max`, `clamp`, `between`, `if`, `coalesce` |
 | `:additive` | Reject non-additive categories. Same-category linear args still convert into the first unit before `call/1`. | Custom `double/1` without a flag |
-| `:none` | Reject all quantities. | `sqrt`, `pow`, `rem`, `mod`, strings, `pi` |
+| `:none` | Reject all quantities. | `sqrt`, `pow`, `mod`, strings, `pi` |
 | `:convert` | First arg a quantity, second a string target; result unit is the target. | `convert` |
 | `:wrap` | Dimensionless number plus a registered name or alias. | `add_unit` |
 | `:unwrap` | Quantity → magnitude. | `remove_unit` |

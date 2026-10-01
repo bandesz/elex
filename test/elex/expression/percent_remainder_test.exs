@@ -5,14 +5,7 @@ defmodule Elex.PercentRemainderTest do
     %{ctx: Elex.new_context()}
   end
 
-  describe "percent remainder errors" do
-    test "rejects rem when either argument is a percent", %{ctx: ctx} do
-      message = "rem function expects number arguments, got percent"
-
-      assert_type_error("rem(10%, 3)", message, ctx)
-      assert_type_error("rem(10, 3%)", message, ctx)
-    end
-
+  describe "percent modulo errors" do
     test "rejects mod when an argument is a percent", %{ctx: ctx} do
       assert_type_error(
         "mod(10%, 3)",

@@ -43,7 +43,7 @@ Public APIs remain `{:ok, _} | {:error, String.t()}`. Registration errors occur 
 - Optional `category: :speed` when the inferred formula is not `length | time` (including decimal/boolean results) — **speed** was expected, with the inferred type (`speed was expected, got length^2`)
 - `category:` with no catalog, or unknown category → **raise** (not `{:error, …}`)
 - Non-additive category in binary `+ − * /` (including hub `C`, `1C + 2C`, `2 * 1C`)
-- Function `units: :none` rejects unitful args (`sqrt`, `pow`, `rem`, `mod`, strings)
+- Function `units: :none` rejects unitful args (`sqrt`, `pow`, `mod`, strings)
 - Function `units: :additive` with a non-additive operand
 - `min` / `max` / `between` / `clamp`: mixed **categories** (`cannot mix length and mass`), or mixed **units** of a non-additive category (`1C` vs `2F`)
 - `if` branches of different types (`if branches must have the same type, got length and mass`)

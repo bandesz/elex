@@ -27,7 +27,7 @@ defmodule Elex.Parser do
   **Functions:** `name(arg1, arg2)` — built-ins include `abs`, `add_unit`,
   `between`, `ceil`, `clamp`, `coalesce`, `concat`, `contains`, `convert`,
   `ends_with`, `floor`, `if`, `length`, `lower`, `match`, `max`, `min`,
-  `mod`, `pi`, `pow`, `rem`, `remove_unit`, `round`, `sqrt`, `starts_with`,
+  `mod`, `pi`, `pow`, `remove_unit`, `round`, `sqrt`, `starts_with`,
   `trim`, and `upper`. `min`, `max`, and `coalesce` accept two or more
   arguments. See modules under `Elex.Functions.*`.
 

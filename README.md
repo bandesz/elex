@@ -165,7 +165,6 @@ against another percent; a literal `0` is allowed and other numbers are rejected
 | `ceil(x)`, `floor(x)`, `round(x)` | Rounding |
 | `sqrt(x)` | Square root |
 | `pow(base, exp)` | Exponentiation |
-| `rem(a, b)` | Remainder (sign follows the dividend) |
 | `mod(a, b)` | Floored modulo (sign follows the divisor) |
 | `inc(value, rate)`, `dec(value, rate)` | Increase or decrease `value` by a percent rate |
 | `max(a, b, …)`, `min(a, b, …)` | Largest or smallest of two or more numbers, percents, or same-category quantities (variadic) |
@@ -192,7 +191,6 @@ context = Elex.new_context()
 {:ok, result} = Elex.evaluate("floor(3.8)", context)           # => #Decimal<3>
 {:ok, result} = Elex.evaluate("round(3.5)", context)           # => #Decimal<4>
 {:ok, result} = Elex.evaluate("sqrt(16)", context)              # => #Decimal<4>
-{:ok, result} = Elex.evaluate("rem(10, 3)", context)           # => #Decimal<1>
 {:ok, result} = Elex.evaluate("pi()", context)                  # => #Decimal<3.14159…>
 {:ok, result} = Elex.evaluate("if(10 > 5, 1, 0)", context)    # => #Decimal<1>
 ```
