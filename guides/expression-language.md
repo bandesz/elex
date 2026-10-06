@@ -131,13 +131,17 @@ Parentheses override precedence: `(1 + 2) * 3`.
 `+` and `-` add or subtract decimals, or quantities of the same dimension
 (the right-hand unit converts into the left). They also add and subtract
 percents (`10% + 20%` is `30%`). Mixing a quantity with a
-number is an error (`1m + 2` is `cannot add length and number`). Non-additive categories (`additive: false`,
-typically temperature) reject binary `+ − * /`; use `add_unit` / `remove_unit`
-for magnitude arithmetic. `*` and `/` scale a quantity by a number,
-or combine two quantities (same-category factors convert into the left unit
-first). Same-dimension division cancels to a decimal (`1m / 1m` → `1`;
-`1ha / 1 {m^2}` → `10000` when hectare is registered with a scale from
-square metres). Modulo is `mod(a, b)` (sign follows the divisor).
+number is an error (`1m + 2` is `cannot add length and number`). Point
+categories such as temperature (`additive: false`) reject binary `+ − * /`;
+use `add_unit` / `remove_unit` for magnitude arithmetic. A non-additive
+derived formula may cancel when its component categories are additive
+(`1 / 8 {L | 100 km}` → `12.5 km | L`; `8 {L | 100 km} * 100 km` → `8 L`).
+In-place scaling, addition, and reciprocal units stay rejected. `*` and `/`
+scale a quantity by a number, or combine two quantities (same-category
+factors convert into the left unit first). Same-dimension division cancels
+to a decimal (`1m / 1m` → `1`; `1ha / 1 {m^2}` → `10000` when hectare is
+registered with a scale from square metres). Modulo is `mod(a, b)` (sign
+follows the divisor).
 
 ### Comparisons
 

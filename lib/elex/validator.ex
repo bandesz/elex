@@ -512,7 +512,7 @@ defmodule Elex.Validator do
   defp infer(%Decimal{}, _ctx), do: {:ok, :decimal}
 
   defp infer({:unit, _value, symbol}, ctx) do
-    case Catalog.category_for_unit(ctx.units, symbol) do
+    case registered_unit_category(symbol, ctx) do
       {:ok, category} -> {:ok, {:dim, category_dim(ctx, category)}}
       :error -> infer_power_suffix(symbol, ctx)
     end
@@ -635,6 +635,20 @@ defmodule Elex.Validator do
     end
   end
 
+  defp registered_unit_category(symbol, ctx) do
+    case Catalog.category_for_unit(ctx.units, symbol) do
+      {:ok, _category} = ok -> ok
+      :error -> inverse_formula_category(symbol, ctx)
+    end
+  end
+
+  defp inverse_formula_category(symbol, %{units: %Catalog{} = catalog}) do
+    case Catalog.inverse_formula_unit(catalog, symbol) do
+      {category, _name, _entry} -> {:ok, category}
+      _ -> :error
+    end
+  end
+
   defp lookup_function(ctx, name, arity) do
     case Map.fetch(ctx.functions, {name, arity}) do
       {:ok, function_module} ->
@@ -730,7 +744,7 @@ defmodule Elex.Validator do
             err
 
           :skip ->
-            validate_mul_div_dims(op, type1, type2, ctx)
+            validate_mul_div_dims(op, a, b, type1, type2, ctx)
         end
 
       [{:error, err}, _] ->
@@ -741,9 +755,8 @@ defmodule Elex.Validator do
     end
   end
 
-  defp validate_mul_div_dims(op, type1, type2, ctx) do
-    with :ok <- reject_non_additive_type(type1, ctx, "'*' or '/'"),
-         :ok <- reject_non_additive_type(type2, ctx, "'*' or '/'"),
+  defp validate_mul_div_dims(op, left_ast, right_ast, type1, type2, ctx) do
+    with :ok <- reject_non_additive_mul_div(op, left_ast, type1, right_ast, type2, ctx),
          {:ok, left_dims} <- numeric_dim(type1, ctx),
          {:ok, right_dims} <- numeric_dim(type2, ctx) do
       {:ok, from_dims(combine_dims(op, left_dims, right_dims))}
@@ -756,6 +769,71 @@ defmodule Elex.Validator do
          "'#{op}' operator cannot be used on #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"}
     end
   end
+
+  defp reject_non_additive_mul_div(op, left_ast, type1, right_ast, type2, ctx) do
+    if in_place_scale?(op, type1, type2) do
+      with :ok <- reject_non_additive_type(type1, ctx, "'*' or '/'") do
+        reject_non_additive_type(type2, ctx, "'*' or '/'")
+      end
+    else
+      with :ok <- reject_non_cancellable_type(left_ast, type1, ctx) do
+        reject_non_cancellable_type(right_ast, type2, ctx)
+      end
+    end
+  end
+
+  defp in_place_scale?(:*, type1, type2), do: decimal_type?(type1) != decimal_type?(type2)
+
+  defp in_place_scale?(:/, type1, type2) do
+    category_type?(type1) and decimal_type?(type2)
+  end
+
+  defp decimal_type?(:decimal), do: true
+  defp decimal_type?({:dim, dim}) when map_size(dim) == 0, do: true
+  defp decimal_type?(%Dimension{monomial: dim}) when map_size(dim) == 0, do: true
+  defp decimal_type?(_type), do: false
+
+  defp reject_non_cancellable_type(ast, type, ctx) do
+    if cancellable_operand?(ast, type, ctx) do
+      :ok
+    else
+      reject_non_additive_type(type, ctx, "'*' or '/'")
+    end
+  end
+
+  defp cancellable_operand?(ast, type, ctx) do
+    case numeric_dim(type, ctx) do
+      {:ok, dim} -> additive_dim?(dim, ctx) or cancellable_unit_ast?(ast, ctx)
+      :error -> true
+    end
+  end
+
+  defp cancellable_unit_ast?(ast, ctx) do
+    case quantity_unit(ast, ctx) do
+      {:ok, %Unit{} = unit} ->
+        is_nil(inverse_formula_unit(unit, ctx)) and component_categories_additive?(unit, ctx)
+
+      _ ->
+        false
+    end
+  end
+
+  defp inverse_formula_unit(unit, %{units: %Catalog{} = catalog}) do
+    Catalog.inverse_formula_unit(catalog, unit)
+  end
+
+  defp inverse_formula_unit(_unit, _ctx), do: nil
+
+  defp component_categories_additive?(%Unit{monomial: monomial}, %{units: %Catalog{} = catalog}) do
+    Enum.all?(monomial, fn {symbol, _exponent} ->
+      case Catalog.category_for_unit(catalog, symbol) do
+        {:ok, category} -> Catalog.additive?(catalog, category)
+        :error -> false
+      end
+    end)
+  end
+
+  defp component_categories_additive?(_unit, _ctx), do: false
 
   defp percent_scale_type(:*, :percent, :percent, _ctx), do: {:ok, :percent}
 

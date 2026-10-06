@@ -47,7 +47,7 @@ Fuel consumption is written as litres per 100 km so the number stays human-sized
 - A coefficient written with `*` (`L | 100 * km`, `8 L | 100 * km`, `L | km * 100`)
 - A slash inside a formula (`L/100km`)
 - A numerator coefficient (`100 km | h`, `2 L | km`)
-- Direct `unit:` conversion between miles per gallon and litres per 100 km (inversion is ordinary division: `1 / 8 {L | 100 km}` is `12.5 km | L`)
+- Direct `unit:` between `L | 100 km` and `mile | gallon` unless `mile | gallon` is registered on that non-additive category with a reciprocal conversion. That registration is [inverse conversion](../inverse-conversion/index.md). Ordinary division stays `1 / 8 {L | 100 km}` → `12.5 km | L`
 - A coefficient on a formula that was not registered
 - Using a denominator-scale unit, or an alias of one, as a component of another formula (`L100km * h`, `L100km | 10 h`, `h | L100km`). The unit is only its registered name or a symbol alias of that whole unit. Multiplying quantities (`8 {L | 100 km} * 100 km`, `8 {L100km} * 1 {h}`) stays ordinary arithmetic
 - Changing quantity inspect to insert `{}`

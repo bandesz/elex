@@ -48,7 +48,8 @@ defmodule Elex.Units.Catalog do
           required(:to_default) => String.t(),
           required(:to_default_ast) => term(),
           required(:from_default_ast) => term(),
-          optional(:aliases) => [String.t()]
+          optional(:aliases) => [String.t()],
+          optional(:inverse) => true
         }
 
   @type category :: %{
@@ -430,6 +431,9 @@ defmodule Elex.Units.Catalog do
   coefficient. A second canonical name with the same monomial and the same
   coefficient is the same unit (`L|100km` after `L | 100 km`). A different
   coefficient is a different unit.
+  An inverse formula (every exponent negated, both dimensions non-empty, no
+  denominator coefficient) is accepted when the category is non-additive and
+  the conversion is a reciprocal (`k / value`).
 
   `aliases:` are optional input-only symbol names for this canonical unit.
   They must match `^[A-Za-z°µμΩΩ][A-Za-z0-9_ΩΩ]*$` and be unique catalog-wide
@@ -466,12 +470,14 @@ defmodule Elex.Units.Catalog do
              :ok <- reject_duplicate_name(catalog, name),
              :ok <- validate_aliases(catalog, name, aliases),
              :ok <- reject_repeated_category(catalog, name),
-             :ok <- validate_formula_dimension(catalog, category, category_entry, name),
+             {:ok, reciprocal_inverse} <-
+               validate_formula_dimension(catalog, category, category_entry, name, to_default),
              {:ok, ast, inverse} <- parse_conversion(to_default),
              :ok <- reject_offset_on_additive(category, category_entry, name, ast),
+             :ok <- reject_opaque_reciprocal(category_entry, name, ast),
              :ok <- reject_component_scale_mismatch(catalog, category_entry, name, ast),
              :ok <- reject_duplicate_scale(catalog, category_entry, name) do
-          unit = unit_entry(to_default, ast, inverse, aliases)
+          unit = unit_entry(to_default, ast, inverse, aliases, reciprocal_inverse)
           units = Map.put(category_entry.units, name, unit)
           categories = Map.put(catalog.categories, category, %{category_entry | units: units})
           {:ok, %{catalog | categories: categories}}
@@ -857,34 +863,63 @@ defmodule Elex.Units.Catalog do
     end
   end
 
-  defp validate_formula_dimension(catalog, category, category_entry, name) when is_binary(name) do
+  defp validate_formula_dimension(catalog, category, category_entry, name, to_default)
+       when is_binary(name) do
     if Regex.match?(@unit_name_pattern, name) do
-      :ok
+      {:ok, false}
     else
-      validate_derived_formula_dimension(catalog, category, category_entry, name)
+      validate_derived_formula_dimension(catalog, category, category_entry, name, to_default)
     end
   end
 
-  defp validate_derived_formula_dimension(catalog, category, category_entry, name) do
-    with {:ok, dim} <- formula_unit_dim(catalog, name) do
-      if dim == Map.get(category_entry, :dim, %{category => 1}) do
-        :ok
-      else
-        {:error, "formula '#{name}' does not match the category dimension"}
+  defp validate_derived_formula_dimension(catalog, category, category_entry, name, to_default) do
+    with {:ok, dim, per} <- formula_dim_and_per(catalog, name) do
+      category_dim = Map.get(category_entry, :dim, %{category => 1})
+
+      cond do
+        dim == category_dim ->
+          {:ok, false}
+
+        per == 1 and inverse_dims?(dim, category_dim) and reciprocal_conversion?(to_default) ->
+          {:ok, true}
+
+        true ->
+          {:error, "formula '#{name}' does not match the category dimension"}
       end
     end
   end
 
-  defp formula_unit_dim(catalog, name) do
+  defp formula_dim_and_per(catalog, name) do
     case Formula.parse(name) do
       {:ok, monomial} ->
-        unit_dim(catalog, monomial)
+        with {:ok, dim} <- unit_dim(catalog, monomial), do: {:ok, dim, 1}
 
-      {:ok, monomial, _per} ->
-        unit_dim(catalog, monomial)
+      {:ok, monomial, per} ->
+        with {:ok, dim} <- unit_dim(catalog, monomial), do: {:ok, dim, per}
 
       {:error, _reason} = error ->
         error
+    end
+  end
+
+  defp inverse_dims?(dim, category_dim) do
+    map_size(dim) > 0 and map_size(category_dim) > 0 and
+      dim == Map.new(category_dim, fn {key, exponent} -> {key, -exponent} end)
+  end
+
+  defp reciprocal_conversion?(to_default) do
+    case parse_conversion(to_default) do
+      {:ok, ast, _inverse} -> conversion_at_zero(ast) == {:error, "division by zero"}
+      {:error, _reason} -> false
+    end
+  end
+
+  defp reject_opaque_reciprocal(category_entry, name, ast) do
+    if Map.has_key?(category_entry, :formula) and Regex.match?(@unit_name_pattern, name) and
+         conversion_at_zero(ast) == {:error, "division by zero"} do
+      {:error, "formula '#{name}' does not match the category dimension"}
+    else
+      :ok
     end
   end
 
@@ -930,14 +965,15 @@ defmodule Elex.Units.Catalog do
     end
   end
 
-  defp unit_entry(to_default, ast, inverse, aliases) do
+  defp unit_entry(to_default, ast, inverse, aliases, reciprocal_inverse) do
     unit = %{
       to_default: to_default,
       to_default_ast: ast,
       from_default_ast: inverse
     }
 
-    if aliases == [], do: unit, else: Map.put(unit, :aliases, aliases)
+    unit = if aliases == [], do: unit, else: Map.put(unit, :aliases, aliases)
+    if reciprocal_inverse, do: Map.put(unit, :inverse, true), else: unit
   end
 
   defp validate_aliases(_catalog, _name, []), do: :ok
@@ -1003,6 +1039,50 @@ defmodule Elex.Units.Catalog do
     Enum.any?(catalog.categories, fn {_category, %{units: units}} ->
       Enum.any?(units, fn {name, _unit} -> matching_scale?(catalog, name, monomial, per) end)
     end)
+  end
+
+  @doc false
+  @spec inverse_formula_unit(t(), Elex.Unit.t() | String.t()) ::
+          {atom(), String.t(), unit()} | nil
+  def inverse_formula_unit(%__MODULE__{} = catalog, unit) do
+    if query_per(unit) == 1 do
+      match_inverse_formula(catalog, query_monomial(unit))
+    end
+  end
+
+  defp match_inverse_formula(catalog, monomial) do
+    Enum.find_value(catalog.categories, fn {category, %{units: units}} ->
+      Enum.find_value(units, fn {name, unit_entry} ->
+        inverse_entry_match(category, name, unit_entry, monomial)
+      end)
+    end)
+  end
+
+  defp inverse_entry_match(category, name, %{inverse: true} = unit_entry, monomial) do
+    case Formula.parse(name) do
+      {:ok, ^monomial} -> {category, name, unit_entry}
+      _ -> nil
+    end
+  end
+
+  defp inverse_entry_match(_category, _name, _unit_entry, _monomial), do: nil
+
+  defp query_per(%Elex.Unit{per: per}), do: per
+
+  defp query_per(unit) when is_binary(unit) do
+    case Formula.parse(unit) do
+      {:ok, _monomial, per} -> per
+      _ -> 1
+    end
+  end
+
+  defp query_monomial(%Elex.Unit{monomial: monomial}), do: monomial
+
+  defp query_monomial(unit) when is_binary(unit) do
+    case Formula.parse(unit) do
+      {:ok, monomial} -> monomial
+      {:error, _} -> %{unit => 1}
+    end
   end
 
   defp matching_scale?(catalog, name, monomial, per) do

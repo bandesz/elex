@@ -21,10 +21,12 @@ defmodule Elex do
   - Type checking and validation
   - Optional caller-registered units (Elex ships no catalog); evaluate
     returns `%Elex.Quantity{}` when the result has a unit. Non-additive
-    categories (`additive: false`) reject binary `+ − * /`; use
-    `add_unit` / `remove_unit` for magnitude arithmetic. Formula strings
-    use `|` for division (`m | s`, `km | h`), not `/`. `evaluate/3`
-    accepts `unit:` and `category:`; `validate/3` accepts `category:` only
+    point categories (`additive: false`, such as temperature) reject
+    binary `+ − * /`; use `add_unit` / `remove_unit` for magnitude
+    arithmetic. A non-additive derived formula may cancel when its
+    component categories are additive. Formula strings use `|` for
+    division (`m | s`, `km | h`), not `/`. `evaluate/3` accepts `unit:`
+    and `category:`; `validate/3` accepts `category:` only
   - Identifier autocomplete (`autocomplete/4`) at a 0-based UTF-8 byte
     offset; works on incomplete input. `empty_prefix: :none` (default)
     or `:all`

@@ -368,6 +368,77 @@ such as `L100km` may stand for `L | 100 km`, but it cannot appear inside
 another formula (`L100km * h`, `L100km | 10 h`). Multiplying the quantity by
 another unit (`8 {L100km} * 1 {h}`) is ordinary arithmetic.
 
+### Inverse formulas
+
+A non-additive category may register a formula whose dimension is the exact
+inverse of the category when the conversion is a reciprocal (`k / value`).
+Litres per 100 km and miles per gallon are that pair. Register volume `L`
+and `gallon` (`value * 3.785411784`) and length `km` and `mile`
+(`value * 1.609344`). Consumption is `volume | length`, default `L | km`,
+with `additive: false`. `mile | gallon` maps to that default with
+`"3.785411784 / 1.609344 / value"`. The same reciprocal on an additive
+category is a registration error.
+
+```elixir
+{:ok, catalog} = Catalog.add_category(Catalog.new(), :volume, default: "L")
+{:ok, catalog} = Catalog.add_unit(catalog, :volume, "L", "value")
+{:ok, catalog} = Catalog.add_unit(catalog, :volume, "gallon", "value * 3.785411784")
+{:ok, catalog} = Catalog.add_category(catalog, :length, default: "km")
+{:ok, catalog} = Catalog.add_unit(catalog, :length, "km", "value")
+{:ok, catalog} = Catalog.add_unit(catalog, :length, "mile", "value * 1.609344")
+
+{:ok, catalog} =
+  Catalog.add_category(catalog, :consumption,
+    formula: "volume | length",
+    default: "L | km",
+    additive: false
+  )
+
+{:ok, catalog} = Catalog.add_unit(catalog, :consumption, "L | km", "value")
+
+{:ok, catalog} =
+  Catalog.add_unit(catalog, :consumption, "L | 100 km", "value / 100")
+
+{:ok, catalog} =
+  Catalog.add_unit(catalog, :consumption, "mile | gallon", "3.785411784 / 1.609344 / value")
+
+{:ok, context} = Elex.Context.put_units(Elex.new_context(), catalog)
+```
+
+`8 {L | 100 km}` with `unit: "mile | gallon"` converts through the category
+default. The conversion string runs left to right at Decimal precision 34.
+Converting that quantity back to `L | 100 km` inspects as
+`#Elex.Quantity<8.000000000000000000000000000000001 L | 100 km>`.
+
+```elixir
+{:ok, qty} = Elex.evaluate("8 {L | 100 km}", context, unit: "mile | gallon")
+# qty => #Elex.Quantity<29.40182291666666666666666666666666 mile | gallon>
+```
+
+On that non-additive consumption catalog, a derived formula may cancel when
+its component categories are additive. `1 / 8 {L | 100 km}` is
+`#Elex.Quantity<12.5 km | L>`, and `8 {L | 100 km} * 100 km` is
+`#Elex.Quantity<8 L>`.
+
+```elixir
+{:ok, qty} = Elex.evaluate("1 / 8 {L | 100 km}", context)
+# qty => #Elex.Quantity<12.5 km | L>
+
+{:ok, qty} = Elex.evaluate("8 {L | 100 km} * 100 km", context)
+# qty => #Elex.Quantity<8 L>
+```
+
+In-place scaling (`2 * 8 {L | 100 km}`, `8 {L | 100 km} / 2`), addition, and
+arithmetic on `mile | gallon` stay rejected.
+
+```elixir
+Elex.evaluate("2 * 8 {L | 100 km}", context)              # error
+Elex.evaluate("8 {L | 100 km} / 2", context)              # error
+Elex.evaluate("8 {L | 100 km} + 2 {L | 100 km}", context) # error
+Elex.evaluate("2 * 8 {mile | gallon}", context)           # error
+Elex.evaluate("1 / 8 {mile | gallon}", context)           # error
+```
+
 ## Functions
 
 `abs`, `ceil`, `floor`, and `round` keep the argument’s unit and operate on the
@@ -440,8 +511,10 @@ alias Elex.Units.Catalog
 # qty => #Elex.Quantity<32 F>
 ```
 
-Non-additive quantities reject binary `+ − * /`, including same-unit
-addition and scaling:
+Point categories such as temperature reject binary `+ − * /`, including
+same-unit addition and scaling. A non-additive derived formula may cancel
+when its component categories are additive; see
+[Inverse formulas](#inverse-formulas).
 
 ```elixir
 Elex.evaluate("1C + 2C", context)    # error
