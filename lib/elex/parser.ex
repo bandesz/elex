@@ -193,6 +193,9 @@ defmodule Elex.Parser do
       {:ok, _monomial} ->
         {rest_after, [{:unit, decimal, interior}], context}
 
+      {:ok, _monomial, _per} ->
+        {rest_after, [{:unit, decimal, interior}], context}
+
       {:error, reason} ->
         {rest_after, [{:formula_error, reason}], context}
     end
@@ -294,19 +297,57 @@ defmodule Elex.Parser do
     end
   end
 
-  # Optional `|` with spaces around it, then a second atom (`s`, `s^2`).
+  # Optional `|` with spaces around it, then a second atom (`s`, `s^2`)
+  # or a juxtaposed denominator coefficient (`100 km`, `100km`).
   defp take_pipe_atom(rest) do
     after_ws = skip_parser_ws(rest)
 
     case after_ws do
       <<?|, after_bar::binary>> ->
-        case take_unit_atom(skip_parser_ws(after_bar)) do
+        case take_pipe_right(skip_parser_ws(after_bar)) do
           {_right, rest_after} ->
             consumed = byte_size(rest) - byte_size(rest_after)
             {binary_part(rest, 0, consumed), rest_after}
 
           nil ->
             nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp take_pipe_right(rest) do
+    case take_denominator_integer(rest) do
+      {_integer, after_integer} -> take_scaled_denominator(after_integer)
+      nil -> take_unit_atom(rest)
+    end
+  end
+
+  defp take_denominator_integer(rest) do
+    case take_digits(rest, "") do
+      {"", _rest} -> nil
+      taken -> taken
+    end
+  end
+
+  defp take_scaled_denominator(rest) do
+    case take_unit_atom(skip_parser_ws(rest)) do
+      {_atom, _rest_after} = taken ->
+        taken
+
+      nil ->
+        take_coefficient_product(rest)
+    end
+  end
+
+  defp take_coefficient_product(rest) do
+    case skip_parser_ws(rest) do
+      <<?*, after_star::binary>> ->
+        case take_unit_atom(skip_parser_ws(after_star)) do
+          {_atom, _rest_after} = taken -> taken
+          nil -> nil
         end
 
       _ ->

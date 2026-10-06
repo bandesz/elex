@@ -314,7 +314,8 @@ defmodule Elex.Validator do
   defp combine_quantity_units({:ok, left}, {:ok, right}, ctx) do
     {left, right} = maybe_expand_derived_units(left, right, ctx)
     aligned = align_overlapping_monomial(left.monomial, right.monomial, ctx)
-    unit_from_monomial(merge_exponents(left.monomial, aligned, &Kernel.+/2))
+    monomial = merge_exponents(left.monomial, aligned, &Kernel.+/2)
+    unit_with_scale(monomial, left.per * right.per, ctx)
   end
 
   defp align_overlapping_monomial(left, right, %{units: %Catalog{} = catalog}) do
@@ -355,7 +356,8 @@ defmodule Elex.Validator do
     else
       aligned = align_overlapping_monomial(left.monomial, right.monomial, ctx)
       inverted = Map.new(aligned, fn {symbol, exponent} -> {symbol, -exponent} end)
-      unit_from_monomial(merge_exponents(left.monomial, inverted, &Kernel.+/2))
+      monomial = merge_exponents(left.monomial, inverted, &Kernel.+/2)
+      unit_with_scale(monomial, quotient_per(left.per, right.per), ctx)
     end
   end
 
@@ -409,7 +411,7 @@ defmodule Elex.Validator do
 
     case Unit.from_monomial(expanded) do
       nil -> unit
-      expanded_unit -> expanded_unit
+      expanded_unit -> %{expanded_unit | per: unit.per}
     end
   end
 
@@ -446,25 +448,64 @@ defmodule Elex.Validator do
     end
   end
 
+  defp unit_with_scale(monomial, per, ctx) do
+    case Unit.from_monomial(monomial) do
+      nil -> :none
+      %Unit{} = unit -> {:ok, %{unit | per: kept_per(unit.monomial, per, ctx)}}
+    end
+  end
+
+  defp quotient_per(left_per, right_per) when rem(left_per, right_per) == 0,
+    do: div(left_per, right_per)
+
+  defp quotient_per(_left_per, _right_per), do: 1
+
+  defp kept_per(monomial, per, ctx) when per > 1 do
+    if registered_scale?(monomial, per, ctx), do: per, else: 1
+  end
+
+  defp kept_per(_monomial, _per, _ctx), do: 1
+
+  defp registered_scale?(monomial, per, %{units: %Catalog{} = catalog}) do
+    Catalog.registered_scale?(catalog, monomial, per)
+  end
+
+  defp registered_scale?(_monomial, _per, _ctx), do: false
+
   defp result_unit(name, %{units: %Catalog{} = catalog}) do
     case Catalog.canonical_name(catalog, name) do
-      {:ok, canonical} -> Unit.new!(canonical)
-      :error -> Unit.new!(name)
+      {:ok, canonical} -> formula_result_unit(canonical, catalog)
+      :error -> formula_result_unit(name, catalog)
     end
   end
 
   defp result_unit(name, _ctx), do: Unit.new!(name)
 
+  defp formula_result_unit(name, catalog) do
+    case Catalog.parse_formula(catalog, name) do
+      {:ok, monomial} -> Unit.from_monomial(monomial)
+      {:ok, monomial, per} -> %{Unit.from_monomial(monomial) | per: per}
+      {:error, _} -> Unit.new!(name)
+    end
+  end
+
   defp infer_power_suffix(symbol, ctx) do
     case Formula.parse(symbol) do
       {:ok, monomial} ->
-        case Catalog.unit_dim(ctx.units, monomial) do
-          {:ok, dim} -> {:ok, {:dim, dim}}
-          {:error, _} -> {:error, "unknown unit '#{symbol}'"}
-        end
+        infer_formula_dimension(monomial, symbol, ctx)
+
+      {:ok, monomial, _per} ->
+        infer_formula_dimension(monomial, symbol, ctx)
 
       {:error, _} ->
         {:error, "unknown unit '#{symbol}'"}
+    end
+  end
+
+  defp infer_formula_dimension(monomial, symbol, ctx) do
+    case Catalog.unit_dim(ctx.units, monomial) do
+      {:ok, dim} -> {:ok, {:dim, dim}}
+      {:error, _} -> {:error, "unknown unit '#{symbol}'"}
     end
   end
 
@@ -947,9 +988,9 @@ defmodule Elex.Validator do
         :ok
 
       {:non_additive, type} ->
-        monomials = Enum.map(asts, &operand_monomial(&1, ctx))
+        units = Enum.map(asts, &operand_unit(&1, ctx))
 
-        if same_monomials?(monomials) do
+        if same_units?(units) do
           :ok
         else
           {:error, "cannot mix units of non-additive #{type_label(type, ctx)}"}
@@ -983,10 +1024,14 @@ defmodule Elex.Validator do
     end
   end
 
-  defp same_monomials?([first | rest]) do
-    first_unit = Unit.new!(first)
-    Enum.all?(rest, &Unit.same?(first_unit, Unit.new!(&1)))
+  defp same_units?([%Unit{} = first | rest]) do
+    Enum.all?(rest, fn
+      %Unit{} = unit -> Unit.same?(first, unit)
+      _other -> false
+    end)
   end
+
+  defp same_units?(_units), do: false
 
   defp unitless_zero_or_compare_error(op, a, b, type1, type2, ctx) do
     cond do
@@ -1034,10 +1079,10 @@ defmodule Elex.Validator do
 
   defp additive_dim?(_dim, _ctx), do: true
 
-  defp operand_monomial(ast, ctx) do
+  defp operand_unit(ast, ctx) do
     case quantity_unit(ast, ctx) do
-      {:ok, %Unit{monomial: monomial}} -> monomial
-      _ -> %{}
+      {:ok, %Unit{} = unit} -> unit
+      _ -> nil
     end
   end
 
@@ -1054,9 +1099,18 @@ defmodule Elex.Validator do
     |> Map.reject(fn {_key, exponent} -> exponent == 0 end)
   end
 
-  defp type_label({:dim, dim}, _ctx), do: label(%Dimension{monomial: dim})
-  defp type_label(%Dimension{} = dim, _ctx), do: label(dim)
+  defp type_label({:dim, dim}, ctx), do: category_or_dim_label(dim, ctx)
+  defp type_label(%Dimension{monomial: dim}, ctx), do: category_or_dim_label(dim, ctx)
   defp type_label(type, _ctx), do: label(type)
+
+  defp category_or_dim_label(dim, %{units: %Catalog{} = catalog}) do
+    case Catalog.category_for_dim(catalog, dim) do
+      {:ok, category} -> label(category)
+      :error -> label(%Dimension{monomial: dim})
+    end
+  end
+
+  defp category_or_dim_label(dim, _ctx), do: label(%Dimension{monomial: dim})
 
   defp validate_equality_op(op, a, b, ctx) do
     case [infer(a, ctx), infer(b, ctx)] do

@@ -317,6 +317,57 @@ separate `:area` catalog, not added next to a `"m^2"` hub:
 # qty => #Elex.Quantity<1 ha>
 ```
 
+### Denominator coefficients
+
+A registered formula may carry one denominator coefficient, written before a
+denominator symbol (`L | 100 km`). Register volume `L` and length `km`, then
+a consumption category whose formula is `volume | length`. The category
+default stays the per-1 identity `L | km`. The scaled unit converts with
+`"value / 100"`.
+
+```elixir
+{:ok, catalog} = Catalog.add_category(Catalog.new(), :volume, default: "L")
+{:ok, catalog} = Catalog.add_unit(catalog, :volume, "L")
+{:ok, catalog} = Catalog.add_category(catalog, :length, default: "km")
+{:ok, catalog} = Catalog.add_unit(catalog, :length, "km")
+
+{:ok, catalog} =
+  Catalog.add_category(catalog, :consumption,
+    formula: "volume | length",
+    default: "L | km"
+  )
+
+{:ok, catalog} = Catalog.add_unit(catalog, :consumption, "L | km", "value")
+{:ok, catalog} =
+  Catalog.add_unit(catalog, :consumption, "L | 100 km", "value / 100")
+
+{:ok, context} = Elex.Context.put_units(Elex.new_context(), catalog)
+```
+
+`8 {L | 100 km}` and `8 L | 100 km` are the same quantity. Convert to the
+identity with `unit: "L | km"`. Multiplying by `100 km` cancels the
+denominator.
+
+```elixir
+{:ok, qty} = Elex.evaluate("8 {L | 100 km}", context)
+# qty => #Elex.Quantity<8 L | 100 km>
+
+{:ok, qty} = Elex.evaluate("8 L | 100 km", context)
+# qty => #Elex.Quantity<8 L | 100 km>
+
+{:ok, qty} = Elex.evaluate("8 {L | 100 km}", context, unit: "L | km")
+# qty => #Elex.Quantity<0.08 L | km>
+
+{:ok, qty} = Elex.evaluate("8 {L | 100 km} * 100 km", context)
+# qty => #Elex.Quantity<8 L>
+```
+
+`L | 50 km` is an unknown unit until that exact scale is registered
+(`unknown unit 'L | 50 km'`). A scaled unit is only that whole unit: an alias
+such as `L100km` may stand for `L | 100 km`, but it cannot appear inside
+another formula (`L100km * h`, `L100km | 10 h`). Multiplying the quantity by
+another unit (`8 {L100km} * 1 {h}`) is ordinary arithmetic.
+
 ## Functions
 
 `abs`, `ceil`, `floor`, and `round` keep the argument’s unit and operate on the

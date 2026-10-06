@@ -70,7 +70,8 @@ defmodule Elex.Units.Catalog do
   Registers a base or derived category.
 
   Base and derived categories take `default:` — the conversion-hub unit
-  (must be registered on that category before `put_units/2`). Derived
+  (must be registered on that category before `put_units/2`). `default:`
+  may not include a denominator coefficient (`L | 100 km`). Derived
   categories also take `formula:` over base category names, and optional
   `identity:` — a unit formula of the base-hub product. A matching identity
   unit must still be registered before `put_units/2`. `identity:` is
@@ -171,15 +172,34 @@ defmodule Elex.Units.Catalog do
   Rejects an invalid formula, unknown symbols, a formula that places
   the same category in both the numerator and the denominator (after
   expanding derived units), and a formula that cancels to an empty unit.
+
+  `per` of 1 stays `{:ok, monomial}`, including a compound formula of known
+  symbols that is not one registered name (`m | s`). A denominator
+  coefficient succeeds as `{:ok, monomial, per}` only when a registered unit
+  has that monomial and that `per`. Spacing is not significant (`L|100km`
+  matches `L | 100 km`). When `per` is greater than 1 and nothing matches,
+  the error is `unknown unit` with the caller's spelling.
   """
-  @spec parse_formula(t(), String.t()) :: {:ok, Formula.monomial()} | {:error, String.t()}
+  @spec parse_formula(t(), String.t()) ::
+          {:ok, Formula.monomial()}
+          | {:ok, Formula.monomial(), pos_integer()}
+          | {:error, String.t()}
   def parse_formula(%__MODULE__{} = catalog, source) when is_binary(source) do
-    with {:ok, monomial} <- Formula.parse(source),
-         monomial <- expand_alias_monomial(catalog, monomial),
-         :ok <- reject_unknown_formula_symbols(catalog, monomial),
-         :ok <- reject_formula_repeated_category(catalog, source),
-         :ok <- reject_empty_formula_dimension(catalog, monomial, source) do
-      {:ok, monomial}
+    case Formula.parse(source) do
+      {:ok, monomial} ->
+        with :ok <- reject_scaled_component(catalog, monomial),
+             {:ok, monomial} <- checked_formula(catalog, source, monomial) do
+          {:ok, monomial}
+        end
+
+      {:ok, monomial, per} ->
+        with :ok <- reject_scaled_component(catalog, monomial),
+             {:ok, monomial} <- checked_formula(catalog, source, monomial) do
+          registered_scaled_formula(catalog, monomial, per, source)
+        end
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -406,6 +426,10 @@ defmodule Elex.Units.Catalog do
   A formula unit may not place the same category in both the numerator and the
   denominator (`N * s | s`, `N * s | hour`). A formula-shaped name whose
   components are already registered must match their combined scale.
+  A denominator coefficient (`L | 100 km`) expects that scale divided by the
+  coefficient. A second canonical name with the same monomial and the same
+  coefficient is the same unit (`L|100km` after `L | 100 km`). A different
+  coefficient is a different unit.
 
   `aliases:` are optional input-only symbol names for this canonical unit.
   They must match `^[A-Za-z°µμΩΩ][A-Za-z0-9_ΩΩ]*$` and be unique catalog-wide
@@ -438,13 +462,15 @@ defmodule Elex.Units.Catalog do
 
       {:ok, category_entry} ->
         with :ok <- validate_unit_name(name, category_entry),
+             :ok <- reject_scaled_component_formula(catalog, name),
              :ok <- reject_duplicate_name(catalog, name),
              :ok <- validate_aliases(catalog, name, aliases),
              :ok <- reject_repeated_category(catalog, name),
-             :ok <- validate_formula_dimension(catalog, category_entry, name),
+             :ok <- validate_formula_dimension(catalog, category, category_entry, name),
              {:ok, ast, inverse} <- parse_conversion(to_default),
              :ok <- reject_offset_on_additive(category, category_entry, name, ast),
-             :ok <- reject_component_scale_mismatch(catalog, category_entry, name, ast) do
+             :ok <- reject_component_scale_mismatch(catalog, category_entry, name, ast),
+             :ok <- reject_duplicate_scale(catalog, category_entry, name) do
           unit = unit_entry(to_default, ast, inverse, aliases)
           units = Map.put(category_entry.units, name, unit)
           categories = Map.put(catalog.categories, category, %{category_entry | units: units})
@@ -493,6 +519,9 @@ defmodule Elex.Units.Catalog do
       Map.has_key?(category_entry, :formula) ->
         :ok
 
+      match?({:ok, _monomial, _per}, Formula.parse(name)) ->
+        :ok
+
       true ->
         {:error, "invalid unit name '#{name}'"}
     end
@@ -507,7 +536,8 @@ defmodule Elex.Units.Catalog do
           {:error, "base category :#{name} requires default:"}
 
         {:ok, default} ->
-          with :ok <- reject_duplicate_dim(catalog, name, %{name => 1}) do
+          with :ok <- reject_denominator_default(default),
+               :ok <- reject_duplicate_dim(catalog, name, %{name => 1}) do
             category = %{
               default: default,
               additive: additive?(opts),
@@ -528,7 +558,8 @@ defmodule Elex.Units.Catalog do
         {:error, "derived category :#{name} requires default:"}
 
       {:ok, default} ->
-        with {:ok, monomial} <- Formula.parse(formula),
+        with :ok <- reject_denominator_default(default),
+             {:ok, monomial} <- parse_category_formula(formula),
              {:ok, dim} <- category_formula_dim(catalog, monomial),
              :ok <- reject_duplicate_dim(catalog, name, dim),
              {:ok, identity} <- fetch_derived_identity(catalog, name, opts, formula) do
@@ -559,17 +590,29 @@ defmodule Elex.Units.Catalog do
           {:ok, ^expected} ->
             {:ok, identity}
 
-          {:ok, _other} ->
-            {:error, "identity '#{identity}' does not match the base-hub product of :#{name}"}
-
           {:error, reason} ->
             {:error, reason}
+
+          _other ->
+            {:error, "identity '#{identity}' does not match the base-hub product of :#{name}"}
         end
     end
   end
 
   defp maybe_put_identity(category, nil), do: category
   defp maybe_put_identity(category, identity), do: Map.put(category, :identity, identity)
+
+  defp reject_denominator_default(default) when is_binary(default) do
+    case Formula.parse(default) do
+      {:ok, _monomial, _per} ->
+        {:error, "default unit '#{default}' cannot include a denominator coefficient"}
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp reject_denominator_default(_default), do: :ok
 
   defp additive?(opts), do: Keyword.get(opts, :additive, true)
 
@@ -603,59 +646,114 @@ defmodule Elex.Units.Catalog do
     end
   end
 
+  defp reject_scaled_component_formula(catalog, name) do
+    case Formula.parse(name) do
+      {:ok, monomial} -> reject_scaled_component(catalog, monomial)
+      {:ok, monomial, _per} -> reject_scaled_component(catalog, monomial)
+      {:error, _} -> :ok
+    end
+  end
+
+  defp reject_scaled_component(catalog, monomial) do
+    case Enum.find(Map.keys(monomial), &scaled_component?(catalog, monomial, &1)) do
+      nil -> :ok
+      symbol -> {:error, "unit '#{symbol}' cannot be used inside another formula"}
+    end
+  end
+
+  defp scaled_component?(catalog, monomial, symbol) do
+    scaled_unit?(catalog, symbol) and monomial != %{symbol => 1}
+  end
+
+  defp scaled_unit?(catalog, symbol) do
+    case canonical_name(catalog, symbol) do
+      {:ok, canonical} -> match?({:ok, _monomial, per} when per > 1, Formula.parse(canonical))
+      :error -> false
+    end
+  end
+
   defp reject_component_scale_mismatch(catalog, category_entry, name, ast) do
     case component_scale_monomial(name) do
       :skip ->
         :ok
 
-      monomial ->
-        compare_component_scale(catalog, category_entry, name, monomial, ast)
+      {monomial, per} ->
+        compare_component_scale(catalog, category_entry, name, monomial, per, ast)
     end
   end
 
   defp component_scale_monomial(name) do
     case Formula.parse(name) do
       {:ok, monomial} ->
-        if monomial == %{name => 1}, do: :skip, else: monomial
+        component_scale_or_skip(name, monomial, 1)
+
+      {:ok, monomial, per} ->
+        component_scale_or_skip(name, monomial, per)
 
       {:error, _} ->
         :skip
     end
   end
 
-  defp compare_component_scale(catalog, category_entry, name, monomial, ast) do
+  defp component_scale_or_skip(name, monomial, per) do
+    if monomial == %{name => 1}, do: :skip, else: {monomial, per}
+  end
+
+  defp compare_component_scale(catalog, category_entry, name, monomial, per, ast) do
     if affine_conversion?(ast) do
       :ok
     else
-      compare_expanded_component_scale(catalog, category_entry, name, monomial, ast)
+      compare_expanded_component_scale(catalog, category_entry, name, monomial, per, ast)
     end
   end
 
-  defp compare_expanded_component_scale(catalog, category_entry, name, monomial, ast) do
+  defp compare_expanded_component_scale(catalog, category_entry, name, monomial, per, ast) do
     case component_default_monomial(catalog, monomial) do
       {:ok, expanded} ->
-        compare_if_same_default(expanded, catalog, category_entry, name, monomial, ast)
+        compare_if_same_default(expanded, catalog, category_entry, name, monomial, per, ast)
 
       :skip ->
         :ok
     end
   end
 
-  defp compare_if_same_default(expanded, catalog, category_entry, name, monomial, ast) do
+  defp compare_if_same_default(expanded, catalog, category_entry, name, monomial, per, ast) do
     if expanded == default_unit_monomial(category_entry.default) do
-      compare_matching_component_scale(catalog, name, monomial, ast)
+      compare_matching_component_scale(catalog, name, monomial, per, ast)
     else
       :ok
     end
   end
 
-  defp compare_matching_component_scale(catalog, name, monomial, ast) do
+  defp compare_matching_component_scale(catalog, name, monomial, per, ast) do
     case {component_to_default_factor(catalog, monomial), conversion_at_one(ast)} do
       {:skip, _} ->
         :ok
 
       {{:ok, expected}, {:ok, actual}} ->
-        matching_component_scale_result(name, expected, actual)
+        matching_component_scale_result(name, Decimal.div(expected, Decimal.new(per)), actual)
+    end
+  end
+
+  defp reject_duplicate_scale(catalog, category_entry, name) do
+    case expanded_component_scale(catalog, name) do
+      :skip -> :ok
+      scale -> duplicate_scale_error(catalog, category_entry, name, scale)
+    end
+  end
+
+  defp duplicate_scale_error(catalog, category_entry, name, scale) do
+    Enum.find_value(category_entry.units, :ok, fn {existing, _unit} ->
+      if expanded_component_scale(catalog, existing) == scale do
+        {:error, "unit '#{name}' has the same scale as '#{existing}'"}
+      end
+    end)
+  end
+
+  defp expanded_component_scale(catalog, name) do
+    case component_scale_monomial(name) do
+      :skip -> :skip
+      {monomial, per} -> {expand_alias_monomial(catalog, monomial), per}
     end
   end
 
@@ -759,17 +857,17 @@ defmodule Elex.Units.Catalog do
     end
   end
 
-  defp validate_formula_dimension(catalog, category_entry, name) when is_binary(name) do
+  defp validate_formula_dimension(catalog, category, category_entry, name) when is_binary(name) do
     if Regex.match?(@unit_name_pattern, name) do
       :ok
     else
-      validate_derived_formula_dimension(catalog, category_entry, name)
+      validate_derived_formula_dimension(catalog, category, category_entry, name)
     end
   end
 
-  defp validate_derived_formula_dimension(catalog, category_entry, name) do
+  defp validate_derived_formula_dimension(catalog, category, category_entry, name) do
     with {:ok, dim} <- formula_unit_dim(catalog, name) do
-      if dim == category_entry.dim do
+      if dim == Map.get(category_entry, :dim, %{category => 1}) do
         :ok
       else
         {:error, "formula '#{name}' does not match the category dimension"}
@@ -778,8 +876,15 @@ defmodule Elex.Units.Catalog do
   end
 
   defp formula_unit_dim(catalog, name) do
-    with {:ok, monomial} <- Formula.parse(name) do
-      unit_dim(catalog, monomial)
+    case Formula.parse(name) do
+      {:ok, monomial} ->
+        unit_dim(catalog, monomial)
+
+      {:ok, monomial, _per} ->
+        unit_dim(catalog, monomial)
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -873,23 +978,77 @@ defmodule Elex.Units.Catalog do
     end)
   end
 
+  defp checked_formula(catalog, source, monomial) do
+    monomial = expand_alias_monomial(catalog, monomial)
+
+    with :ok <- reject_unknown_formula_symbols(catalog, monomial),
+         :ok <- reject_formula_repeated_category(catalog, source),
+         :ok <- reject_empty_formula_dimension(catalog, monomial, source) do
+      {:ok, monomial}
+    end
+  end
+
+  defp registered_scaled_formula(catalog, monomial, per, source) do
+    if registered_scale?(catalog, monomial, per) do
+      {:ok, monomial, per}
+    else
+      {:error, "unknown unit '#{source}'"}
+    end
+  end
+
+  @doc false
+  @spec registered_scale?(t(), Formula.monomial(), pos_integer()) :: boolean()
+  def registered_scale?(%__MODULE__{} = catalog, monomial, per)
+      when is_map(monomial) and is_integer(per) do
+    Enum.any?(catalog.categories, fn {_category, %{units: units}} ->
+      Enum.any?(units, fn {name, _unit} -> matching_scale?(catalog, name, monomial, per) end)
+    end)
+  end
+
+  defp matching_scale?(catalog, name, monomial, per) do
+    case Formula.parse(name) do
+      {:ok, unit_monomial, ^per} ->
+        expand_alias_monomial(catalog, unit_monomial) ==
+          expand_alias_monomial(catalog, monomial)
+
+      _ ->
+        false
+    end
+  end
+
   defp expand_alias_monomial(catalog, monomial) do
     Enum.reduce(monomial, %{}, fn {symbol, exponent}, acc ->
-      combine_dim(acc, scale_dim(canonical_symbol_monomial(catalog, symbol), exponent))
+      canonical = canonical_symbol_monomial(catalog, symbol)
+      combine_dim(acc, scale_dim(canonical, exponent))
     end)
   end
 
   defp canonical_symbol_monomial(catalog, symbol) do
     case canonical_name(catalog, symbol) do
-      {:ok, canonical} -> parsed_canonical_monomial(canonical)
+      {:ok, ^symbol} -> %{symbol => 1}
+      {:ok, canonical} -> parsed_canonical_monomial(catalog, canonical)
       :error -> %{symbol => 1}
     end
   end
 
-  defp parsed_canonical_monomial(canonical) do
+  defp parsed_canonical_monomial(catalog, canonical) do
     case Formula.parse(canonical) do
-      {:ok, monomial} -> monomial
-      {:error, _} -> %{canonical => 1}
+      {:ok, monomial} ->
+        expand_alias_monomial(catalog, monomial)
+
+      {:ok, monomial, _per} ->
+        expand_alias_monomial(catalog, monomial)
+
+      {:error, _} ->
+        %{canonical => 1}
+    end
+  end
+
+  defp parse_category_formula(formula) do
+    case Formula.parse(formula) do
+      {:ok, monomial} -> {:ok, monomial}
+      {:ok, _monomial, _per} -> {:error, "invalid formula '#{formula}'"}
+      {:error, _reason} = error -> error
     end
   end
 
