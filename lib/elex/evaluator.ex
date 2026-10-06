@@ -161,8 +161,8 @@ defmodule Elex.Evaluator do
   def evaluate!({:*, [left_ast, right_ast]}, ctx) do
     case coerce_percent_scale(evaluate!(left_ast, ctx), evaluate!(right_ast, ctx)) do
       {%Quantity{} = left, %Quantity{} = right} ->
-        reject_non_additive!(left, ctx, "'*' or '/'")
-        reject_non_additive!(right, ctx, "'*' or '/'")
+        reject_non_cancellable!(left, ctx)
+        reject_non_cancellable!(right, ctx)
         multiply_quantities(left, right, ctx)
 
       {%Percent{} = percent, %Decimal{} = decimal} ->
@@ -185,8 +185,8 @@ defmodule Elex.Evaluator do
   def evaluate!({:/, [left_ast, right_ast]}, ctx) do
     case {evaluate!(left_ast, ctx), evaluate!(right_ast, ctx)} do
       {%Quantity{} = left, %Quantity{} = right} ->
-        reject_non_additive!(left, ctx, "'*' or '/'")
-        reject_non_additive!(right, ctx, "'*' or '/'")
+        reject_non_cancellable!(left, ctx)
+        reject_non_cancellable!(right, ctx)
         divide_quantities(left, right, ctx)
 
       {%Quantity{} = quantity, scalar} when not is_struct(scalar, Quantity) ->
@@ -194,7 +194,7 @@ defmodule Elex.Evaluator do
         quantity(Decimal.div(quantity.value, scalar), quantity.unit)
 
       {scalar, %Quantity{} = quantity} when not is_struct(scalar, Quantity) ->
-        reject_non_additive!(quantity, ctx, "'*' or '/'")
+        reject_non_cancellable!(quantity, ctx)
         monomial = invert_monomial(unit_monomial(quantity.unit))
         physical = divide_per(quantity.value, unit_per(quantity.unit))
         quantity_or_decimal(Decimal.div(scalar, physical), monomial)
@@ -374,7 +374,7 @@ defmodule Elex.Evaluator do
   defp mismatch_style(opts), do: Keyword.get(opts, :mismatch, :convert)
 
   defp apply_trimmed_target_unit(%Quantity{unit: from_unit} = quantity, to_unit, ctx, style) do
-    case Catalog.canonical_name(ctx.units, to_unit) do
+    case registered_target_name(to_unit, ctx) do
       {:ok, canonical} ->
         apply_registered_target(quantity, from_unit, canonical, ctx, style)
 
@@ -390,6 +390,23 @@ defmodule Elex.Evaluator do
 
       :error ->
         non_quantity_unknown_target(result, to_unit, ctx)
+    end
+  end
+
+  defp registered_target_name(to_unit, ctx) do
+    case Catalog.canonical_name(ctx.units, to_unit) do
+      {:ok, _canonical} = ok ->
+        ok
+
+      :error ->
+        inverse_target_name(to_unit, ctx)
+    end
+  end
+
+  defp inverse_target_name(to_unit, ctx) do
+    case inverse_formula(to_unit, ctx) do
+      {_category, name, _entry} -> {:ok, name}
+      _ -> :error
     end
   end
 
@@ -431,14 +448,14 @@ defmodule Elex.Evaluator do
   end
 
   defp apply_registered_target(quantity, from_unit, to_unit, ctx, style) do
-    with {:ok, from_dim} <- unit_dim(from_unit, ctx),
+    with {:ok, from_dim} <- conversion_dim(from_unit, ctx),
          {:ok, target_dim} <- Catalog.unit_dim(ctx.units, %{to_unit => 1}),
          :ok <- matching_target_dim(from_dim, target_dim, to_unit, ctx.units, style) do
       try do
         value = convert_to(quantity, to_unit, ctx)
         {:ok, quantity(value, formula_result_unit(to_unit, ctx.units))}
       rescue
-        e in RuntimeError -> {:error, Exception.message(e)}
+        e in [RuntimeError, Decimal.Error] -> {:error, conversion_error_message(e)}
       end
     end
   end
@@ -467,8 +484,11 @@ defmodule Elex.Evaluator do
     end
   end
 
-  defp result_category(%Unit{monomial: monomial}, catalog) do
-    result_category(monomial, catalog)
+  defp result_category(%Unit{} = unit, catalog) do
+    case inverse_formula(unit, %{units: catalog}) do
+      {category, _name, _entry} -> {:ok, category}
+      nil -> result_category(unit.monomial, catalog)
+    end
   end
 
   defp result_category(from_unit, catalog) when is_binary(from_unit) do
@@ -684,6 +704,29 @@ defmodule Elex.Evaluator do
     end
   end
 
+  defp reject_non_cancellable!(%Quantity{} = quantity, ctx) do
+    if cancellable_quantity?(quantity, ctx) do
+      :ok
+    else
+      reject_non_additive!(quantity, ctx, "'*' or '/'")
+    end
+  end
+
+  defp cancellable_quantity?(%Quantity{unit: unit}, ctx) do
+    is_nil(inverse_formula(unit, ctx)) and component_categories_additive?(unit, ctx)
+  end
+
+  defp component_categories_additive?(unit, %{units: %Catalog{} = catalog}) do
+    Enum.all?(unit_monomial(unit), fn {symbol, _exponent} ->
+      case Catalog.category_for_unit(catalog, symbol) do
+        {:ok, category} -> Catalog.additive?(catalog, category)
+        :error -> false
+      end
+    end)
+  end
+
+  defp component_categories_additive?(_unit, _ctx), do: false
+
   defp reject_non_additive_args!(args, ctx, op_label) do
     Enum.each(args, fn
       %Quantity{} = quantity -> reject_non_additive!(quantity, ctx, op_label)
@@ -752,7 +795,7 @@ defmodule Elex.Evaluator do
   defp additive_quantity?(%Quantity{unit: unit}, ctx), do: additive_unit?(unit, ctx)
 
   defp additive_unit?(unit, %{units: %Catalog{} = catalog}) do
-    case formula_target_dim(unit_monomial(unit), catalog) do
+    case conversion_dim(unit, %{units: catalog}) do
       {:ok, dim} when map_size(dim) == 0 ->
         true
 
@@ -1045,25 +1088,73 @@ defmodule Elex.Evaluator do
   end
 
   defp convert_to(%Quantity{value: value, unit: from_unit}, to_unit, ctx) do
+    cond do
+      unit_monomial(from_unit) == unit_monomial(to_unit) ->
+        value
+        |> divide_per(unit_per(from_unit))
+        |> multiply_per(unit_per(to_unit))
+
+      target = inverse_formula(to_unit, ctx) ->
+        convert_to_inverse(quantity(value, from_unit), target, ctx)
+
+      source = inverse_formula(from_unit, ctx) ->
+        convert_from_inverse(value, source, to_unit, ctx)
+
+      true ->
+        convert_named_or_hub(value, from_unit, to_unit, ctx)
+    end
+  end
+
+  defp convert_named_or_hub(value, from_unit, to_unit, ctx) do
     from_name = registered_name(from_unit)
     to_name = registered_name(to_unit)
     physical = divide_per(value, unit_per(from_unit))
 
     converted =
-      cond do
-        unit_monomial(from_unit) == unit_monomial(to_unit) ->
-          physical
-
-        is_binary(from_name) and is_binary(to_name) and
-            same_named_category?(from_name, to_name, ctx) ->
-          convert_named(physical, from_name, to_name, ctx)
-
-        true ->
-          convert_via_base_hub(physical, from_unit, to_unit, ctx)
+      if is_binary(from_name) and is_binary(to_name) and
+           same_named_category?(from_name, to_name, ctx) do
+        convert_named(physical, from_name, to_name, ctx)
+      else
+        convert_via_base_hub(physical, from_unit, to_unit, ctx)
       end
 
     multiply_per(converted, unit_per(to_unit))
   end
+
+  defp convert_to_inverse(quantity, {category, _name, entry}, ctx) do
+    default_value = convert_to(quantity, category_default(category, ctx), ctx)
+    evaluate!(entry.from_default_ast, conversion_context(default_value))
+  end
+
+  defp convert_from_inverse(value, {category, _name, entry}, to_unit, ctx) do
+    default = category_default(category, ctx)
+    default_value = evaluate!(entry.to_default_ast, conversion_context(value))
+    convert_to(quantity(default_value, default), to_unit, ctx)
+  end
+
+  defp category_default(category, ctx) do
+    Catalog.categories(ctx.units)[category]
+  end
+
+  defp conversion_dim(unit, ctx) do
+    case inverse_formula(unit, ctx) do
+      {category, _name, _entry} -> {:ok, category_dim(category, ctx)}
+      nil -> unit_dim(unit, ctx)
+    end
+  end
+
+  defp category_dim(category, ctx) do
+    Map.get(ctx.units.categories[category], :dim, %{category => 1})
+  end
+
+  defp inverse_formula(unit, %{units: %Catalog{} = catalog}) do
+    Catalog.inverse_formula_unit(catalog, unit)
+  end
+
+  defp inverse_formula(_unit, _ctx), do: nil
+
+  defp conversion_error_message(%RuntimeError{} = error), do: Exception.message(error)
+  defp conversion_error_message(%Decimal.Error{} = error), do: humanize_decimal_error(error)
 
   defp divide_per(value, 1), do: value
   defp divide_per(value, per), do: Decimal.div(value, per)
