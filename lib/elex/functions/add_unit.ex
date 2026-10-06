@@ -54,7 +54,8 @@ defmodule Elex.Functions.AddUnit do
   @doc false
   def call([%Decimal{} = value, symbol], ctx \\ %Context{}) when is_binary(symbol) do
     with {:ok, canonical} <- resolve_name(symbol, ctx) do
-      {:ok, %Quantity{value: value, unit: Unit.new!(canonical)}}
+      unit = formula_unit(canonical, ctx)
+      {:ok, %Quantity{value: value, unit: unit}}
     end
   end
 
@@ -66,6 +67,14 @@ defmodule Elex.Functions.AddUnit do
       description: "wraps a number as a quantity of the given unit",
       category: :math
     }
+  end
+
+  defp formula_unit(name, %{units: %Catalog{} = catalog}) do
+    case Catalog.parse_formula(catalog, name) do
+      {:ok, monomial} -> Unit.from_monomial(monomial)
+      {:ok, monomial, per} -> %{Unit.from_monomial(monomial) | per: per}
+      {:error, _} -> Unit.new!(name)
+    end
   end
 
   defp resolve_name(symbol, %{units: %Catalog{} = catalog}) when is_binary(symbol) do

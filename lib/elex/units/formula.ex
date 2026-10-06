@@ -9,7 +9,10 @@ defmodule Elex.Units.Formula do
   exponent must be a non-zero integer literal without a leading zero, not a
   unit. A formula that cancels to nothing (`m | m`, `m^0`) is invalid. Trailing
   digits in a symbol are part of the name (`s2` is not `s^2`). Inverse is
-  `s^-1` or `1 | s` (not `| s`). `/` is invalid (`m | s`, not `m / s`).
+  `s^-1` or `1 | s` (not `| s`). One denominator coefficient, an integer >= 2
+  with no leading zero, may be juxtaposed before a denominator symbol
+  (`L | 100 km`); `parse/1` returns that integer as `per`. `per` of 1 stays
+  `{:ok, monomial}`. `/` is invalid (`m | s`, not `m / s`).
   Braces are only a quantity suffix (`1 {m | s}`), not a formula string.
 
   Used when registering derived-category units and when converting an evaluate
@@ -21,23 +24,27 @@ defmodule Elex.Units.Formula do
 
   @type monomial :: %{optional(String.t()) => integer()}
 
-  @spec parse(String.t()) :: {:ok, monomial()} | {:error, String.t()}
+  @spec parse(String.t()) ::
+          {:ok, monomial()} | {:ok, monomial(), pos_integer()} | {:error, String.t()}
   def parse(source) when is_binary(source) do
     with {:ok, tokens} <- tokenize(source),
-         {:ok, ast} <- parse_formula(tokens),
+         {:ok, ast, per} <- parse_formula(tokens),
          {:ok, monomial} <- nonempty_monomial(ast) do
-      {:ok, monomial}
+      with_per(monomial, per)
     else
       {:error, _reason} -> {:error, invalid_formula_message(source)}
     end
   end
+
+  defp with_per(monomial, 1), do: {:ok, monomial}
+  defp with_per(monomial, per) when per > 1, do: {:ok, monomial, per}
 
   @doc false
   @spec numerator_and_denominator(String.t()) ::
           {:ok, MapSet.t(String.t()), MapSet.t(String.t())} | {:error, String.t()}
   def numerator_and_denominator(source) when is_binary(source) do
     with {:ok, tokens} <- tokenize(source),
-         {:ok, ast} <- parse_formula(tokens) do
+         {:ok, ast, _per} <- parse_formula(tokens) do
       {num, den} = collect_parts(ast, 1, {[], []})
       {:ok, MapSet.new(num), MapSet.new(den)}
     else
@@ -119,29 +126,35 @@ defmodule Elex.Units.Formula do
   end
 
   defp parse_formula([{:int, 1}, :pipe | rest]) do
-    case parse_product(rest) do
-      {:ok, denominator, []} -> {:ok, {:div, :one, denominator}}
-      {:ok, _denominator, _rest} -> {:error, "invalid formula"}
-      {:error, _reason} = error -> error
-    end
+    parse_scaled_division(:one, rest)
   end
 
   defp parse_formula(tokens) do
     with {:ok, numerator, rest} <- parse_product(tokens) do
-      parse_denominator(numerator, rest)
+      case rest do
+        [:pipe | denominator] -> parse_scaled_division(numerator, denominator)
+        [] -> {:ok, numerator, 1}
+        _ -> {:error, "invalid formula"}
+      end
     end
   end
 
-  defp parse_denominator(numerator, [:pipe | rest]) do
-    case parse_product(rest) do
-      {:ok, denominator, []} -> {:ok, {:div, numerator, denominator}}
+  defp parse_scaled_division(numerator, tokens) do
+    with {:ok, per, tokens} <- denominator_coefficient(tokens),
+         {:ok, denominator, []} <- parse_product(tokens) do
+      {:ok, {:div, numerator, denominator}, per}
+    else
       {:ok, _denominator, _rest} -> {:error, "invalid formula"}
       {:error, _reason} = error -> error
     end
   end
 
-  defp parse_denominator(numerator, []), do: {:ok, numerator}
-  defp parse_denominator(_numerator, _rest), do: {:error, "invalid formula"}
+  defp denominator_coefficient([{:int, n} | [{:ident, _name} | _] = rest]) when n >= 2 do
+    {:ok, n, rest}
+  end
+
+  defp denominator_coefficient([{:int, _n} | _rest]), do: {:error, "invalid formula"}
+  defp denominator_coefficient(tokens), do: {:ok, 1, tokens}
 
   defp parse_product(tokens) do
     with {:ok, left, rest} <- parse_factor(tokens) do

@@ -196,7 +196,8 @@ defmodule Elex.Evaluator do
       {scalar, %Quantity{} = quantity} when not is_struct(scalar, Quantity) ->
         reject_non_additive!(quantity, ctx, "'*' or '/'")
         monomial = invert_monomial(unit_monomial(quantity.unit))
-        quantity_or_decimal(Decimal.div(scalar, quantity.value), monomial)
+        physical = divide_per(quantity.value, unit_per(quantity.unit))
+        quantity_or_decimal(Decimal.div(scalar, physical), monomial)
 
       {left, right} ->
         Decimal.div(left, right)
@@ -397,6 +398,9 @@ defmodule Elex.Evaluator do
       {:ok, _monomial} ->
         {:error, "cannot convert #{result_kind(result)} to a unit"}
 
+      {:ok, _monomial, _per} ->
+        {:error, "cannot convert #{result_kind(result)} to a unit"}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -432,7 +436,7 @@ defmodule Elex.Evaluator do
          :ok <- matching_target_dim(from_dim, target_dim, to_unit, ctx.units, style) do
       try do
         value = convert_to(quantity, to_unit, ctx)
-        {:ok, quantity(value, registered_unit(to_unit))}
+        {:ok, quantity(value, formula_result_unit(to_unit, ctx.units))}
       rescue
         e in RuntimeError -> {:error, Exception.message(e)}
       end
@@ -440,18 +444,26 @@ defmodule Elex.Evaluator do
   end
 
   defp apply_formula_target(%Quantity{unit: from_unit} = quantity, to_unit, ctx, style) do
-    with {:ok, target_monomial} <- Catalog.parse_formula(ctx.units, to_unit),
+    with {:ok, target_monomial, per} <- parsed_formula_target(ctx.units, to_unit),
          :ok <- reject_non_additive_target(target_monomial, ctx),
          {:ok, target_dim} <- formula_target_dim(target_monomial, ctx.units),
          {:ok, from_dim} <- unit_dim(from_unit, ctx),
          :ok <- matching_target_dim(from_dim, target_dim, to_unit, ctx.units, style) do
       try do
-        target = Unit.from_monomial(target_monomial)
+        target = %{Unit.from_monomial(target_monomial) | per: per}
         value = convert_to(quantity, target, ctx)
         {:ok, quantity(value, target)}
       rescue
         e in RuntimeError -> {:error, Exception.message(e)}
       end
+    end
+  end
+
+  defp parsed_formula_target(catalog, to_unit) do
+    case Catalog.parse_formula(catalog, to_unit) do
+      {:ok, monomial} -> {:ok, monomial, 1}
+      {:ok, monomial, per} -> {:ok, monomial, per}
+      {:error, _} = error -> error
     end
   end
 
@@ -809,7 +821,8 @@ defmodule Elex.Evaluator do
     {left, right} = maybe_expand_derived(left, right, ctx)
     {right_value, right_monomial} = align_right_to_left(left.unit, right, ctx)
     monomial = combine_monomials(unit_monomial(left.unit), right_monomial)
-    quantity_or_decimal(Decimal.mult(left.value, right_value), monomial)
+    per = unit_per(left.unit) * unit_per(right.unit)
+    combine_scaled(Decimal.mult(left.value, right_value), monomial, per, ctx)
   end
 
   defp divide_quantities(left, right, ctx) do
@@ -823,9 +836,50 @@ defmodule Elex.Evaluator do
       monomial =
         combine_monomials(unit_monomial(left.unit), invert_monomial(right_monomial))
 
-      quantity_or_decimal(Decimal.div(left.value, right_value), monomial)
+      divide_scaled(
+        left.value,
+        unit_per(left.unit),
+        right_value,
+        unit_per(right.unit),
+        monomial,
+        ctx
+      )
     end
   end
+
+  defp divide_scaled(left_value, left_per, right_value, right_per, monomial, ctx) do
+    unnormalized = Decimal.div(left_value, right_value)
+
+    if rem(left_per, right_per) == 0 do
+      combine_scaled(unnormalized, monomial, div(left_per, right_per), ctx)
+    else
+      physical =
+        unnormalized
+        |> Decimal.mult(right_per)
+        |> divide_per(left_per)
+
+      quantity_or_decimal(physical, monomial)
+    end
+  end
+
+  defp combine_scaled(unnormalized, monomial, per, ctx) do
+    cond do
+      map_size(monomial) == 0 ->
+        divide_per(unnormalized, per)
+
+      keep_registered_scale?(monomial, per, ctx) ->
+        quantity(unnormalized, %{Unit.from_monomial(monomial) | per: per})
+
+      true ->
+        quantity(divide_per(unnormalized, per), monomial)
+    end
+  end
+
+  defp keep_registered_scale?(monomial, per, %{units: %Catalog{} = catalog}) when per > 1 do
+    Catalog.registered_scale?(catalog, monomial, per)
+  end
+
+  defp keep_registered_scale?(_monomial, _per, _ctx), do: false
 
   defp maybe_expand_derived(left, right, ctx) do
     if same_named_derived_units?(left.unit, right.unit, ctx) do
@@ -876,7 +930,7 @@ defmodule Elex.Evaluator do
 
     case Unit.from_monomial(monomial) do
       nil -> quantity
-      expanded -> quantity(value, expanded)
+      expanded -> quantity(value, %{expanded | per: unit_per(unit)})
     end
   end
 
@@ -942,6 +996,7 @@ defmodule Elex.Evaluator do
   defp unit_monomial(unit) when is_binary(unit) do
     case Formula.parse(unit) do
       {:ok, monomial} -> monomial
+      {:ok, monomial, _per} -> monomial
       {:error, _} -> %{unit => 1}
     end
   end
@@ -992,19 +1047,40 @@ defmodule Elex.Evaluator do
   defp convert_to(%Quantity{value: value, unit: from_unit}, to_unit, ctx) do
     from_name = registered_name(from_unit)
     to_name = registered_name(to_unit)
+    physical = divide_per(value, unit_per(from_unit))
 
-    cond do
-      unit_monomial(from_unit) == unit_monomial(to_unit) ->
-        value
+    converted =
+      cond do
+        unit_monomial(from_unit) == unit_monomial(to_unit) ->
+          physical
 
-      is_binary(from_name) and is_binary(to_name) and
-          same_named_category?(from_name, to_name, ctx) ->
-        convert_named(value, from_name, to_name, ctx)
+        is_binary(from_name) and is_binary(to_name) and
+            same_named_category?(from_name, to_name, ctx) ->
+          convert_named(physical, from_name, to_name, ctx)
 
-      true ->
-        convert_via_base_hub(value, from_unit, to_unit, ctx)
+        true ->
+          convert_via_base_hub(physical, from_unit, to_unit, ctx)
+      end
+
+    multiply_per(converted, unit_per(to_unit))
+  end
+
+  defp divide_per(value, 1), do: value
+  defp divide_per(value, per), do: Decimal.div(value, per)
+
+  defp multiply_per(value, 1), do: value
+  defp multiply_per(value, per), do: Decimal.mult(value, per)
+
+  defp unit_per(%Unit{per: per}), do: per
+
+  defp unit_per(unit) when is_binary(unit) do
+    case Formula.parse(unit) do
+      {:ok, _monomial, per} -> per
+      _ -> 1
     end
   end
+
+  defp unit_per(_unit), do: 1
 
   defp same_named_category?(from_name, to_name, ctx) do
     case {Catalog.category_for_unit(ctx.units, from_name),
@@ -1104,11 +1180,9 @@ defmodule Elex.Evaluator do
   defp to_unit(symbol) when is_binary(symbol), do: Unit.new!(symbol)
   defp to_unit(monomial) when is_map(monomial), do: Unit.from_monomial(monomial)
 
-  defp registered_unit(name), do: Unit.new!(name)
-
   defp result_unit(name, %{units: %Catalog{} = catalog}) do
     case Catalog.canonical_name(catalog, name) do
-      {:ok, canonical} -> Unit.new!(canonical)
+      {:ok, canonical} -> formula_result_unit(canonical, catalog)
       :error -> formula_result_unit(name, catalog)
     end
   end
@@ -1118,6 +1192,7 @@ defmodule Elex.Evaluator do
   defp formula_result_unit(name, catalog) do
     case Catalog.parse_formula(catalog, name) do
       {:ok, monomial} -> Unit.from_monomial(monomial)
+      {:ok, monomial, per} -> %{Unit.from_monomial(monomial) | per: per}
       {:error, _} -> Unit.new!(name)
     end
   end

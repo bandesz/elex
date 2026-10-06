@@ -115,5 +115,43 @@ defmodule Elex.Units.FormulaTest do
       assert Formula.parse("m | m") == {:error, "invalid formula 'm | m'"}
       assert Formula.parse("m^2 | m^2") == {:error, "invalid formula 'm^2 | m^2'"}
     end
+
+    test "parses one juxtaposed denominator coefficient as per" do
+      assert Formula.parse("L | 100 km") == {:ok, %{"L" => 1, "km" => -1}, 100}
+      assert Formula.parse("L|100km") == {:ok, %{"L" => 1, "km" => -1}, 100}
+      assert Formula.parse("1 | 100 s") == {:ok, %{"s" => -1}, 100}
+      assert Formula.parse("L | 100 km * m") == {:ok, %{"L" => 1, "km" => -1, "m" => -1}, 100}
+      assert Formula.parse("L | 100 km^2") == {:ok, %{"L" => 1, "km" => -2}, 100}
+      assert Formula.parse("L | 2 km") == {:ok, %{"L" => 1, "km" => -1}, 2}
+    end
+
+    test "keeps an unscaled formula as a two-tuple" do
+      assert Formula.parse("L | km") == {:ok, %{"L" => 1, "km" => -1}}
+      assert Formula.parse("1 | s") == {:ok, %{"s" => -1}}
+      assert Formula.parse("m | s^2") == {:ok, %{"m" => 1, "s" => -2}}
+    end
+
+    test "rejects a coefficient that is not one juxtaposed denominator integer >= 2" do
+      assert Formula.parse("100 km | h") == {:error, "invalid formula '100 km | h'"}
+      assert Formula.parse("L | 100 * km") == {:error, "invalid formula 'L | 100 * km'"}
+      assert Formula.parse("L | km * 100") == {:error, "invalid formula 'L | km * 100'"}
+      assert Formula.parse("L | 1 km") == {:error, "invalid formula 'L | 1 km'"}
+      assert Formula.parse("L | 0 km") == {:error, "invalid formula 'L | 0 km'"}
+      assert Formula.parse("L | 01 km") == {:error, "invalid formula 'L | 01 km'"}
+      assert Formula.parse("L | 100 km * 2") == {:error, "invalid formula 'L | 100 km * 2'"}
+    end
+  end
+
+  describe "numerator_and_denominator/1" do
+    test "returns unit symbols and skips a denominator coefficient" do
+      assert Formula.numerator_and_denominator("m | s^2") ==
+               {:ok, MapSet.new(["m"]), MapSet.new(["s"])}
+
+      assert Formula.numerator_and_denominator("L | 100 km") ==
+               {:ok, MapSet.new(["L"]), MapSet.new(["km"])}
+
+      assert Formula.numerator_and_denominator("L | 100 km * m") ==
+               {:ok, MapSet.new(["L"]), MapSet.new(["km", "m"])}
+    end
   end
 end

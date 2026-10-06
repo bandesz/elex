@@ -9,7 +9,8 @@ defmodule Elex.Units.UnitTest do
       unit = Unit.from_monomial(%{"m" => 1})
 
       assert %Unit{monomial: %{"m" => 1}} = unit
-      assert Map.keys(Map.from_struct(unit)) == [:monomial]
+      assert Map.keys(Map.from_struct(unit)) == [:monomial, :per]
+      assert unit.per == 1
     end
 
     test "drops zero exponents from the monomial" do
@@ -71,6 +72,20 @@ defmodule Elex.Units.UnitTest do
       assert %Unit{monomial: %{"m" => 1, "s" => -1}} = unit
     end
 
+    test "sets per to 1 for a monomial map" do
+      assert {:ok, unit} = Unit.new(%{"m" => 1})
+
+      assert unit.monomial == %{"m" => 1}
+      assert unit.per == 1
+    end
+
+    test "parses a denominator coefficient into per" do
+      assert {:ok, unit} = Unit.new("L | 100 km")
+
+      assert unit.monomial == %{"L" => 1, "km" => -1}
+      assert unit.per == 100
+    end
+
     test "returns an error for an empty monomial" do
       assert Unit.new(%{}) == {:error, "empty unit"}
       assert Unit.new(%{"m" => 0}) == {:error, "empty unit"}
@@ -110,6 +125,15 @@ defmodule Elex.Units.UnitTest do
     test "treats m^2 as the same unit as m * m" do
       assert Unit.same?(Unit.new!("m^2"), Unit.new!("m * m"))
     end
+
+    test "is true only when the monomial and per match" do
+      assert {:ok, scaled} = Unit.new("L | 100 km")
+      assert {:ok, identity} = Unit.new("L | km")
+      assert {:ok, compact} = Unit.new("L|100km")
+
+      assert Unit.same?(scaled, compact)
+      refute Unit.same?(scaled, identity)
+    end
   end
 
   describe "convertible?/3" do
@@ -143,6 +167,16 @@ defmodule Elex.Units.UnitTest do
     test "is false when either unit has an unknown symbol", %{catalog: catalog} do
       refute Unit.convertible?(Unit.new!("ft"), Unit.new!("ft"), catalog)
       refute Unit.convertible?(Unit.new!("m"), Unit.new!("ft"), catalog)
+    end
+
+    test "is true for the same dimension when per differs", %{catalog: catalog} do
+      assert {:ok, scaled} = Unit.new("m | 100 s")
+      assert {:ok, identity} = Unit.new("m | s")
+      assert scaled.per == 100
+      assert identity.per == 1
+      refute Unit.same?(scaled, identity)
+
+      assert Unit.convertible?(scaled, identity, catalog)
     end
   end
 
@@ -212,6 +246,18 @@ defmodule Elex.Units.UnitTest do
 
     test "pretty-prints a compact pipe formula with a spaced bar" do
       assert inspect(Unit.new!("km|h")) == "#Elex.Unit<km | h>"
+    end
+
+    test "prints a denominator coefficient after the bar" do
+      assert {:ok, scaled} = Unit.new("L | 100 km")
+      assert {:ok, identity} = Unit.new("L | km")
+
+      assert inspect(scaled) == "#Elex.Unit<L | 100 km>"
+      assert inspect(identity) == "#Elex.Unit<L | km>"
+    end
+
+    test "prints a reciprocal denominator coefficient after the bar" do
+      assert inspect(Unit.new!("1 | 100 s")) == "#Elex.Unit<1 | 100 s>"
     end
   end
 end

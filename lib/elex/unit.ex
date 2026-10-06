@@ -1,27 +1,32 @@
 defmodule Elex.Unit do
   @moduledoc """
-  A unit of measure as a canonical monomial.
+  A unit of measure as a canonical monomial and a denominator coefficient.
 
-  Evaluate returns a unit monomial only. Zero exponents are dropped. Names
+  Evaluate returns a unit with a monomial and a denominator coefficient
+  (`per`, default `1`). Zero exponents are dropped. Names
   are not split on trailing digits (`m2` stays `%{"m2" => 1}`). Inspect
   always formats the monomial with `|` and `^` (`m^2`, `m | s`, `m | s^2`).
-  A single exponent-1 symbol prints as that symbol (`N`, `mm`).
+  A single exponent-1 symbol prints as that symbol (`N`, `mm`). A coefficient
+  greater than 1 prints after `|` (`L | 100 km`, `1 | 100 s`).
 
-  `same?/2` compares monomials. `convertible?/3` takes a catalog and is true
-  when both units have the same dimension vector (`m` and `km` of `:length`).
-  `compatible?/3` maps a unit monomial to a category formula and compares it
-  to a category (`cm | s` vs `:speed`).
+  `same?/2` compares monomials and `per`. `convertible?/3` takes a catalog and
+  is true when both units have the same dimension vector (`m` and `km` of
+  `:length`), ignoring `per`. `compatible?/3` maps a unit monomial to a
+  category formula and compares it to a category (`cm | s` vs `:speed`), also
+  ignoring `per`.
 
   ## Fields
 
   - `:monomial` - A map of symbols to integer exponents
+  - `:per` - A positive integer denominator coefficient, default `1`
 
   ## Examples
 
       %Elex.Unit{monomial: %{"m" => 1}}
       %Elex.Unit{monomial: %{"m" => 1, "s" => -1}}
+      %Elex.Unit{monomial: %{"L" => 1, "km" => -1}, per: 100}
   """
-  defstruct [:monomial]
+  defstruct monomial: nil, per: 1
 
   alias Elex.Units.Catalog
   alias Elex.Units.Formula
@@ -35,7 +40,8 @@ defmodule Elex.Unit do
   A unit as a canonical monomial.
   """
   @type t :: %__MODULE__{
-          monomial: monomial()
+          monomial: monomial(),
+          per: pos_integer()
         }
 
   @doc """
@@ -52,6 +58,7 @@ defmodule Elex.Unit do
   def new(source) when is_binary(source) do
     case Formula.parse(source) do
       {:ok, monomial} -> new(monomial)
+      {:ok, monomial, per} -> new_with_per(monomial, per)
       {:error, reason} -> {:error, reason}
     end
   end
@@ -91,7 +98,7 @@ defmodule Elex.Unit do
 
   @spec same?(t(), t()) :: boolean()
   def same?(%__MODULE__{} = left, %__MODULE__{} = right) do
-    left.monomial == right.monomial
+    left.monomial == right.monomial and left.per == right.per
   end
 
   @doc """
@@ -122,6 +129,12 @@ defmodule Elex.Unit do
     end
   end
 
+  defp new_with_per(monomial, per) do
+    with {:ok, unit} <- new(monomial) do
+      {:ok, %{unit | per: per}}
+    end
+  end
+
   defp canonicalize(monomial) do
     monomial
     |> Enum.reject(fn {_name, exponent} -> exponent == 0 end)
@@ -129,18 +142,18 @@ defmodule Elex.Unit do
   end
 
   defimpl Inspect do
-    def inspect(%Elex.Unit{monomial: monomial}, _opts) do
-      "#Elex.Unit<#{format_monomial(monomial)}>"
+    def inspect(%Elex.Unit{monomial: monomial, per: per}, _opts) do
+      "#Elex.Unit<#{format_monomial(monomial, per)}>"
     end
 
-    defp format_monomial(monomial) do
+    defp format_monomial(monomial, per) do
       {numerators, denominators} =
         monomial
         |> Enum.sort_by(fn {symbol, _exponent} -> symbol end)
         |> Enum.split_with(fn {_symbol, exponent} -> exponent > 0 end)
 
       num_formula = Enum.map_join(numerators, " * ", &format_factor/1)
-      den_formula = Enum.map_join(denominators, " * ", &format_factor/1)
+      den_formula = format_denominator(denominators, per)
 
       cond do
         denominators == [] ->
@@ -152,6 +165,14 @@ defmodule Elex.Unit do
         true ->
           num_formula <> " | " <> den_formula
       end
+    end
+
+    defp format_denominator(denominators, per) when per > 1 do
+      "#{per} " <> Enum.map_join(denominators, " * ", &format_factor/1)
+    end
+
+    defp format_denominator(denominators, _per) do
+      Enum.map_join(denominators, " * ", &format_factor/1)
     end
 
     defp format_factor({symbol, exponent}) when abs(exponent) == 1, do: symbol
