@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-06
+
+### Added
+
+- Formulas and `%Elex.Unit{}` gained an additive denominator coefficient
+  (`per`, default 1), for example `L | 100 km`. A scaled unit is only that
+  whole unit and cannot be a component of another formula. Compatibility is
+  additive: existing per-1 formulas and units behave as before
+- A non-additive category may register a formula whose dimension is the
+  exact inverse of the category when the conversion is a reciprocal
+  (`k / value`). `mile | gallon` on consumption (`additive: false`,
+  default `L | km`) uses `"3.785411784 / 1.609344 / value"`, so
+  `8 {L | 100 km}` with `unit: "mile | gallon"` converts to miles per
+  gallon. Compatibility is additive: existing catalogs behave as before
+
 ## [0.4.0] - 2026-10-01
 
 ### Breaking
@@ -162,6 +177,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Ash resource validation via `Elex.AshValidation`
 - `Elex.Function` behaviour for custom functions
 
+[0.4.1]: https://github.com/bandesz/elex/releases/tag/v0.4.1
 [0.4.0]: https://github.com/bandesz/elex/releases/tag/v0.4.0
 [0.3.4]: https://github.com/bandesz/elex/releases/tag/v0.3.4
 [0.3.3]: https://github.com/bandesz/elex/releases/tag/v0.3.3
