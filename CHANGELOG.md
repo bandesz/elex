@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `add_unit` takes `derivable: false` so that unit keeps its category atom
+  in a formula (litre stays `volume`). Omitted and `derivable: true` store
+  no flag. A category `formula:` may name a derived category
+  (`volume | length`). Compatibility is additive: existing units and
+  all-base formulas behave as before
+
 ## [0.4.1] - 2026-10-06
 
 ### Added

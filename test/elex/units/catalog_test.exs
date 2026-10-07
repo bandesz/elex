@@ -813,7 +813,7 @@ defmodule Elex.Units.CatalogTest do
       refute Map.has_key?(Catalog.categories(catalog), :force)
     end
 
-    test "rejects a derived formula that references a derived category" do
+    test "registers a formula that names a derived category" do
       {:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
       {:ok, catalog} = Catalog.add_unit(catalog, :length, "m", "value")
       {:ok, catalog} = Catalog.add_category(catalog, :time, default: "s")
@@ -824,14 +824,16 @@ defmodule Elex.Units.CatalogTest do
 
       {:ok, catalog} = Catalog.add_unit(catalog, :speed, "m | s", "value")
 
-      assert {:error, message} =
+      assert {:ok, catalog} =
                Catalog.add_category(catalog, :acceleration,
                  formula: "speed | time",
                  default: "m | s^2"
                )
 
-      assert message == "formula may only use base categories; :speed is derived"
-      refute Map.has_key?(Catalog.categories(catalog), :acceleration)
+      assert {:ok, dimension} = Catalog.dimension(catalog, :acceleration)
+      assert inspect(dimension) == "#Elex.Dimension<speed | time>"
+      assert dimension.monomial == %{speed: 1, time: -1}
+      refute dimension.monomial == %{length: 1, time: -2}
     end
 
     test "validate rejects a default hub that is not among the category units" do

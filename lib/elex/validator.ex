@@ -50,11 +50,20 @@ defmodule Elex.Validator do
           {:ok, atom() | Dimension.t()} | {:error, String.t()}
   def validate(ast, ctx) do
     case infer(ast, ctx) do
-      {:ok, {:dim, dim}} -> {:ok, %Dimension{monomial: dim}}
-      {:ok, %Dimension{}} = ok -> ok
-      {:ok, type} when type in @scalar_types -> {:ok, type}
-      {:ok, type} when is_atom(type) -> {:ok, %Dimension{monomial: category_dim(ctx, type)}}
-      other -> other
+      {:ok, {:dim, dim}} ->
+        {:ok, %Dimension{monomial: nominal_result_dim(dim, ctx)}}
+
+      {:ok, %Dimension{monomial: dim}} ->
+        {:ok, %Dimension{monomial: nominal_result_dim(dim, ctx)}}
+
+      {:ok, type} when type in @scalar_types ->
+        {:ok, type}
+
+      {:ok, type} when is_atom(type) ->
+        {:ok, %Dimension{monomial: category_dim(ctx, type)}}
+
+      other ->
+        other
     end
   end
 
@@ -416,7 +425,8 @@ defmodule Elex.Validator do
   end
 
   defp derived_identity_monomial(symbol, %{units: %Catalog{} = catalog}) do
-    with {:ok, category} <- Catalog.category_for_unit(catalog, symbol),
+    with true <- derivable_symbol?(catalog, symbol),
+         {:ok, category} <- Catalog.category_for_unit(catalog, symbol),
          {_name, identity} <- Catalog.formula_identity(catalog, category) do
       {:ok, identity}
     else
@@ -426,6 +436,10 @@ defmodule Elex.Validator do
 
   defp derived_identity_monomial(_symbol, _ctx), do: :none
 
+  defp derivable_symbol?(catalog, symbol) do
+    not match?({:ok, %{derivable: false}}, Catalog.fetch_unit(catalog, symbol))
+  end
+
   defp scale_unit_monomial(monomial, exponent) do
     monomial
     |> Map.new(fn {symbol, n} -> {symbol, n * exponent} end)
@@ -434,12 +448,19 @@ defmodule Elex.Validator do
 
   defp same_unit_category?(left, right, %{units: %Catalog{} = catalog}) do
     case {Catalog.unit_dim(catalog, left), Catalog.unit_dim(catalog, right)} do
-      {{:ok, dim}, {:ok, dim}} -> true
-      _ -> false
+      {{:ok, left_dim}, {:ok, right_dim}} ->
+        cancelling_same_category?(left, right, left_dim, right_dim, catalog)
+
+      _ ->
+        false
     end
   end
 
   defp same_unit_category?(_left, _right, _ctx), do: false
+
+  defp cancelling_same_category?(_left, _right, left_dim, right_dim, catalog) do
+    Catalog.same_category_dim?(catalog, left_dim, right_dim)
+  end
 
   defp unit_from_monomial(monomial) do
     case Unit.from_monomial(monomial) do
@@ -513,7 +534,7 @@ defmodule Elex.Validator do
 
   defp infer({:unit, _value, symbol}, ctx) do
     case registered_unit_category(symbol, ctx) do
-      {:ok, category} -> {:ok, {:dim, category_dim(ctx, category)}}
+      {:ok, category} -> {:ok, {:dim, registered_symbol_dim(symbol, category, ctx)}}
       :error -> infer_power_suffix(symbol, ctx)
     end
   end
@@ -635,6 +656,26 @@ defmodule Elex.Validator do
     end
   end
 
+  defp registered_symbol_dim(symbol, category, ctx) do
+    case ctx.units do
+      %Catalog{} = catalog ->
+        if derivable_symbol?(catalog, symbol) do
+          category_dim(ctx, category)
+        else
+          %{category => 1}
+        end
+
+      _ ->
+        %{category => 1}
+    end
+  end
+
+  defp nominal_result_dim(dim, %{units: %Catalog{} = catalog}) do
+    Unit.reduce_nominal_power(catalog, dim)
+  end
+
+  defp nominal_result_dim(dim, _ctx), do: dim
+
   defp registered_unit_category(symbol, ctx) do
     case Catalog.category_for_unit(ctx.units, symbol) do
       {:ok, _category} = ok -> ok
@@ -715,15 +756,7 @@ defmodule Elex.Validator do
         {:ok, :percent}
 
       [{:ok, type1}, {:ok, type2}] ->
-        case {numeric_dim(type1, ctx), numeric_dim(type2, ctx)} do
-          {{:ok, dim}, {:ok, dim}} ->
-            with :ok <- reject_non_additive_type(type1, ctx, "'#{op}'") do
-              {:ok, from_dims(dim)}
-            end
-
-          _ ->
-            add_sub_type_error(op, type1, type2, ctx)
-        end
+        add_sub_types(op, a, b, type1, type2, ctx)
 
       [{:error, err}, _] ->
         {:error, err}
@@ -732,6 +765,42 @@ defmodule Elex.Validator do
         {:error, err}
     end
   end
+
+  defp add_sub_types(op, a, b, type1, type2, ctx) do
+    case {numeric_dim(type1, ctx), numeric_dim(type2, ctx)} do
+      {{:ok, left_dim}, {:ok, right_dim}} ->
+        add_matching_dim(op, a, b, type1, type2, left_dim, right_dim, ctx)
+
+      _ ->
+        add_sub_type_error(op, type1, type2, ctx)
+    end
+  end
+
+  defp add_matching_dim(op, a, b, type1, type2, left_dim, right_dim, ctx) do
+    case add_sub_dim(a, b, left_dim, right_dim, ctx) do
+      {:ok, dim} ->
+        with :ok <- reject_non_additive_type(type1, ctx, "'#{op}'") do
+          {:ok, from_dims(dim)}
+        end
+
+      :error ->
+        add_sub_type_error(op, type1, type2, ctx)
+    end
+  end
+
+  defp add_sub_dim(_left_ast, _right_ast, dim, dim, _ctx), do: {:ok, dim}
+
+  defp add_sub_dim(_left_ast, _right_ast, left_dim, right_dim, %{units: %Catalog{} = catalog}) do
+    if Catalog.same_category_dim?(catalog, left_dim, right_dim) do
+      {:ok, reduced_dim(left_dim, catalog)}
+    else
+      :error
+    end
+  end
+
+  defp add_sub_dim(_left_ast, _right_ast, _left_dim, _right_dim, _ctx), do: :error
+
+  defp reduced_dim(dim, %Catalog{} = catalog), do: Unit.reduce_nominal_power(catalog, dim)
 
   defp validate_mul_div_op(op, a, b, ctx) do
     case [infer(a, ctx), infer(b, ctx)] do
@@ -759,7 +828,7 @@ defmodule Elex.Validator do
     with :ok <- reject_non_additive_mul_div(op, left_ast, type1, right_ast, type2, ctx),
          {:ok, left_dims} <- numeric_dim(type1, ctx),
          {:ok, right_dims} <- numeric_dim(type2, ctx) do
-      {:ok, from_dims(combine_dims(op, left_dims, right_dims))}
+      {:ok, mul_div_result(op, left_ast, right_ast, left_dims, right_dims, ctx)}
     else
       {:error, reason} ->
         {:error, reason}
@@ -768,6 +837,28 @@ defmodule Elex.Validator do
         {:error,
          "'#{op}' operator cannot be used on #{type_label(type1, ctx)} and #{type_label(type2, ctx)}"}
     end
+  end
+
+  defp mul_div_result(:/, left_ast, right_ast, left_dims, right_dims, ctx) do
+    if cancelling_division?(left_ast, right_ast, left_dims, right_dims, ctx) do
+      :decimal
+    else
+      from_dims(combine_dims(:/, left_dims, right_dims))
+    end
+  end
+
+  defp mul_div_result(op, _left_ast, _right_ast, left_dims, right_dims, _ctx) do
+    from_dims(combine_dims(op, left_dims, right_dims))
+  end
+
+  defp cancelling_division?(_left_ast, _right_ast, left_dims, right_dims, %{
+         units: %Catalog{} = catalog
+       }) do
+    Catalog.same_category_dim?(catalog, left_dims, right_dims)
+  end
+
+  defp cancelling_division?(_left_ast, _right_ast, left_dims, right_dims, _ctx) do
+    left_dims == right_dims
   end
 
   defp reject_non_additive_mul_div(op, left_ast, type1, right_ast, type2, ctx) do
@@ -883,15 +974,7 @@ defmodule Elex.Validator do
         {:ok, :boolean}
 
       [{:ok, type1}, {:ok, type2}] ->
-        case {numeric_dim(type1, ctx), numeric_dim(type2, ctx)} do
-          {{:ok, dim}, {:ok, dim}} when map_size(dim) > 0 ->
-            with :ok <- reject_mixed_non_additive_units([a, b], ctx) do
-              {:ok, :boolean}
-            end
-
-          _ ->
-            unitless_zero_or_compare_error(op, a, b, type1, type2, ctx)
-        end
+        validate_quantity_comparison(op, a, b, type1, type2, ctx)
 
       [{:error, err}, _] ->
         {:error, err}
@@ -1197,15 +1280,7 @@ defmodule Elex.Validator do
         {:ok, :boolean}
 
       [{:ok, type1}, {:ok, type2}] ->
-        case {numeric_dim(type1, ctx), numeric_dim(type2, ctx)} do
-          {{:ok, dim}, {:ok, dim}} when map_size(dim) > 0 ->
-            with :ok <- reject_mixed_non_additive_units([a, b], ctx) do
-              {:ok, :boolean}
-            end
-
-          _ ->
-            unitless_zero_or_compare_error(op, a, b, type1, type2, ctx)
-        end
+        validate_quantity_comparison(op, a, b, type1, type2, ctx)
 
       [{:error, err}, _] ->
         {:error, err}
@@ -1214,6 +1289,31 @@ defmodule Elex.Validator do
         {:error, err}
     end
   end
+
+  defp validate_quantity_comparison(op, a, b, type1, type2, ctx) do
+    case {numeric_dim(type1, ctx), numeric_dim(type2, ctx)} do
+      {{:ok, left_dim}, {:ok, right_dim}} ->
+        if comparable_quantity_dims?(a, b, left_dim, right_dim, ctx) do
+          with :ok <- reject_mixed_non_additive_units([a, b], ctx) do
+            {:ok, :boolean}
+          end
+        else
+          unitless_zero_or_compare_error(op, a, b, type1, type2, ctx)
+        end
+
+      _ ->
+        unitless_zero_or_compare_error(op, a, b, type1, type2, ctx)
+    end
+  end
+
+  defp comparable_quantity_dims?(_a, _b, dim, dim, _ctx) when map_size(dim) > 0, do: true
+
+  defp comparable_quantity_dims?(_a, _b, left_dim, right_dim, %{units: %Catalog{} = catalog}) do
+    map_size(reduced_dim(left_dim, catalog)) > 0 and
+      Catalog.same_category_dim?(catalog, left_dim, right_dim)
+  end
+
+  defp comparable_quantity_dims?(_a, _b, _left_dim, _right_dim, _ctx), do: false
 
   defp validate_boolean_op(op, a, b, ctx) do
     case [infer(a, ctx), infer(b, ctx)] do

@@ -595,36 +595,10 @@ defmodule Elex do
     Catalog.category_for_unit(catalog, unit)
   end
 
-  defp unit_category(catalog, %Unit{monomial: monomial}) do
-    with {:ok, dim} <- monomial_dim(catalog, monomial) do
-      Catalog.category_for_dim(catalog, dim)
+  defp unit_category(catalog, %Unit{} = unit) do
+    with {:ok, dim} <- Catalog.unit_dim(catalog, unit) do
+      Catalog.category_for_dim(catalog, Unit.reduce_nominal_power(catalog, dim))
     end
-  end
-
-  defp monomial_dim(catalog, monomial) do
-    Enum.reduce_while(monomial, {:ok, %{}}, fn {symbol, exponent}, {:ok, acc} ->
-      case symbol_dim(catalog, symbol, exponent) do
-        {:ok, scaled} -> {:cont, {:ok, merge_dim(acc, scaled)}}
-        :error -> {:halt, :error}
-      end
-    end)
-  end
-
-  defp symbol_dim(catalog, symbol, exponent) do
-    case Catalog.category_for_unit(catalog, symbol) do
-      {:ok, category} ->
-        dim = Map.get(catalog.categories[category], :dim, %{category => 1})
-        {:ok, Map.new(dim, fn {name, n} -> {name, n * exponent} end)}
-
-      :error ->
-        :error
-    end
-  end
-
-  defp merge_dim(left, right) do
-    left
-    |> Map.merge(right, fn _name, a, b -> a + b end)
-    |> Map.reject(fn {_name, n} -> n == 0 end)
   end
 
   defp unit_label(unit) when is_binary(unit), do: unit

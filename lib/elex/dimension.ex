@@ -1,25 +1,29 @@
 defmodule Elex.Dimension do
   @moduledoc """
-  A category formula as a canonical monomial of base categories.
+  A category formula as a canonical monomial of category atoms.
 
-  Validate returns this for unitful results (base categories → exponents).
-  It is never collapsed to a derived name (`:speed`, `:force`). Inspect uses
-  the same formula language as units, with category atoms: `length | time`,
-  `length^2`, `length | mass * time^2`.
+  Validate returns this for unitful results (category atoms → exponents).
+  All-base formulas store base category atoms (`length | time`, `length^2`,
+  `length | mass * time^2`). A formula that names a derived category stores
+  that atom (`volume | length`). Inspect uses the same formula language as
+  units.
 
   ## Fields
 
-  - `:monomial` - A map of base category atoms to integer exponents
+  - `:monomial` - A map of category atoms to integer exponents. A key may
+    name a base category or a derived category.
 
   ## Examples
 
       %Elex.Dimension{monomial: %{length: 1}}
       %Elex.Dimension{monomial: %{length: 1, time: -1}}
+      %Elex.Dimension{monomial: %{volume: 1, length: -1}}
   """
   defstruct [:monomial]
 
   @typedoc """
-  A monomial of base category atoms to integer exponents.
+  A monomial of category atoms to integer exponents.
+  A key may name a base category or a derived category.
   """
   @type monomial :: %{optional(atom()) => integer()}
 
