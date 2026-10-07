@@ -10,5 +10,6 @@ Initiative-level designs for Elex. Each subdirectory has its own `index.md`.
 | [percent/](percent/index.md) | complete | `%` suffix for percent values |
 | [denominator-scale/](denominator-scale/index.md) | in progress | implementation review |
 | [inverse-conversion/](inverse-conversion/index.md) | complete | Reciprocal conversion between an inverse formula and the category default |
+| [not-derivable/](not-derivable/index.md) | complete | `derivable: false` so litre stays volume inside `volume \| length` |
 
 Start at the linked `index.md` for decisions and user flows.

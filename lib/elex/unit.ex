@@ -104,13 +104,18 @@ defmodule Elex.Unit do
   @doc """
   Returns true when both units have the same dimension vector in `catalog`.
 
-  Unknown symbols are not convertible.
+  A pure power of a derived category (`%{volume => n}`) matches that
+  category's stored dimension scaled by `n`. A mixed vector is compared as
+  stored. Unknown symbols are not convertible.
   """
   @spec convertible?(t(), t(), Catalog.t()) :: boolean()
   def convertible?(%__MODULE__{} = left, %__MODULE__{} = right, %Catalog{} = catalog) do
     case {Catalog.unit_dim(catalog, left), Catalog.unit_dim(catalog, right)} do
-      {{:ok, dim}, {:ok, dim}} -> true
-      _ -> false
+      {{:ok, left_dim}, {:ok, right_dim}} ->
+        reduce_nominal_power(catalog, left_dim) == reduce_nominal_power(catalog, right_dim)
+
+      _ ->
+        false
     end
   end
 
@@ -119,14 +124,50 @@ defmodule Elex.Unit do
 
   Each symbol in the unit monomial is mapped to its category and exponents
   are combined. The result is compared to the category's formula (or dim).
-  `cm | s` is compatible with `:speed` even if `cm/s` is not a registered unit.
+  A pure power of a derived category matches that category's stored dimension
+  scaled by the same exponent. `cm | s` is compatible with `:speed` even if
+  `cm/s` is not a registered unit.
   """
   @spec compatible?(t(), atom(), Catalog.t()) :: boolean()
   def compatible?(%__MODULE__{} = unit, category, %Catalog{} = catalog) when is_atom(category) do
     case {Catalog.unit_dim(catalog, unit), Catalog.dimension(catalog, category)} do
-      {{:ok, dim}, {:ok, %Elex.Dimension{monomial: dim}}} -> true
-      _ -> false
+      {{:ok, dim}, {:ok, %Elex.Dimension{monomial: category_dim}}} ->
+        reduce_nominal_power(catalog, dim) == reduce_nominal_power(catalog, category_dim)
+
+      _ ->
+        false
     end
+  end
+
+  @doc false
+  @spec reduce_nominal_power(Catalog.t(), %{optional(atom()) => integer()}) ::
+          %{optional(atom()) => integer()}
+  def reduce_nominal_power(%Catalog{} = catalog, dim) when is_map(dim) do
+    case Map.to_list(dim) do
+      [{category, exponent}] ->
+        reduce_derived_power(catalog, category, exponent, dim)
+
+      _ ->
+        dim
+    end
+  end
+
+  defp reduce_derived_power(catalog, category, exponent, dim) do
+    case Catalog.kind(catalog, category) do
+      {:ok, :derived} ->
+        {:ok, %Elex.Dimension{monomial: stored}} = Catalog.dimension(catalog, category)
+        scale_exponents(stored, exponent)
+
+      _ ->
+        dim
+    end
+  end
+
+  defp scale_exponents(dim, exponent) do
+    dim
+    |> Map.new(fn {category, n} -> {category, n * exponent} end)
+    |> Enum.reject(fn {_category, n} -> n == 0 end)
+    |> Map.new()
   end
 
   defp new_with_per(monomial, per) do

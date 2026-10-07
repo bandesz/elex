@@ -141,14 +141,14 @@ Suffix and formula parse traps are in [Gotchas](#gotchas).
 
 ## Derived categories
 
-A derived category is a formula over **base category names** (`length`,
-`time` — the category atoms, not unit symbols like `m` or `s`). Derived
-category names are not allowed in another formula (`speed | time` is an
-error even when `:speed` exists). `default:` is required: the conversion
-**hub** used when converting between units of that category — not the unit
-evaluate returns. `put_units/2` then requires that hub to be among the
-category's registered units, same as a base category, **and** a base-hub
-identity. That identity is satisfied when
+A derived category is a formula over category atoms (`length`, `time` —
+not unit symbols like `m` or `s`). The formula may name a derived category
+(`volume | length`). `default:` is required: the conversion **hub** used
+when converting between units of that category — not the unit evaluate
+returns. `put_units/2` then requires that hub to be among the category's
+registered units, same as a base category. When every formula component is
+a base category, it also requires a base-hub identity. That identity is
+satisfied when
 (a) `default:` parses to the product of the **base hubs** (`"m^2"` when
 `:length` defaults to `m`), or (c) a registered unit name parses
 to it (`"kg * m | s^2"`). Optional `identity:` on `add_category` names that
@@ -437,6 +437,51 @@ Elex.evaluate("8 {L | 100 km} / 2", context)              # error
 Elex.evaluate("8 {L | 100 km} + 2 {L | 100 km}", context) # error
 Elex.evaluate("2 * 8 {mile | gallon}", context)           # error
 Elex.evaluate("1 / 8 {mile | gallon}", context)           # error
+```
+
+### Not-derivable units
+
+`derivable: false` on `add_unit` keeps that unit's category atom in a
+formula. Omitted means derivable and stores no flag. Derive `:volume` from
+`length * length * length` with hub `m^3`. `m^3` omits `derivable:`, so it
+still expands and `1 m^3 / 1 m` remains area. `L` is `derivable: false` at
+`"value / 1000"`, so a formula keeps the category atom `volume`. `:fuel`
+names that derived category: formula `volume | length`, default `L | km`.
+`L | 100 km` converts with `"value / 100"`.
+
+The denominator-coefficient and mile-per-gallon catalogs above keep
+`:volume` as a base category. This catalog is separate.
+
+```elixir
+{:ok, catalog} = Catalog.add_category(Catalog.new(), :length, default: "m")
+{:ok, catalog} = Catalog.add_unit(catalog, :length, "m")
+{:ok, catalog} = Catalog.add_unit(catalog, :length, "km", "value * 1000")
+
+{:ok, catalog} =
+  Catalog.add_category(catalog, :volume,
+    formula: "length * length * length",
+    default: "m^3"
+  )
+
+{:ok, catalog} = Catalog.add_unit(catalog, :volume, "m^3", "value")
+
+{:ok, catalog} =
+  Catalog.add_unit(catalog, :volume, "L", "value / 1000", derivable: false)
+
+{:ok, catalog} =
+  Catalog.add_category(catalog, :fuel, formula: "volume | length", default: "L | km")
+
+{:ok, catalog} = Catalog.add_unit(catalog, :fuel, "L | km", "value")
+
+{:ok, catalog} =
+  Catalog.add_unit(catalog, :fuel, "L | 100 km", "value / 100")
+
+{:ok, context} = Elex.Context.put_units(Elex.new_context(), catalog)
+```
+
+```elixir
+{:ok, qty} = Elex.evaluate("1 m^3 / 1 m", context)
+# qty => #Elex.Quantity<1 m^2>
 ```
 
 ## Functions

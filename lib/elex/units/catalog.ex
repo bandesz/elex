@@ -13,10 +13,14 @@ defmodule Elex.Units.Catalog do
   Derived `add_category` may take `identity:` (a unit formula of the
   base-hub product) so a named hub such as `"N"` can name that formula.
   A matching identity unit must still be registered. `identity:` is
-  rejected on base categories.
+  rejected on base categories, and when the formula names a derived
+  category. That formula stores each component category atom. `put_units`
+  then requires a registered per-1 unit of that nominal dimension.
 
   `add_unit/4` takes an explicit conversion string; `aliases:` defaults
-  to `[]`. The conversion must be a string (`value / 100`), not a charlist.
+  to `[]`. `derivable: false` keeps that unit's category atom in a formula;
+  omitted means derivable and stores no flag. The conversion must be a
+  string (`value / 100`), not a charlist.
   A formula-shaped unit name whose components are already registered
   must use a matching scale (`cm` at `value / 100` means `"cm^2"` is
   `value / 10000`). `identity:` names the base-hub formula; a matching
@@ -49,7 +53,8 @@ defmodule Elex.Units.Catalog do
           required(:to_default_ast) => term(),
           required(:from_default_ast) => term(),
           optional(:aliases) => [String.t()],
-          optional(:inverse) => true
+          optional(:inverse) => true,
+          optional(:derivable) => false
         }
 
   @type category :: %{
@@ -73,10 +78,14 @@ defmodule Elex.Units.Catalog do
   Base and derived categories take `default:` — the conversion-hub unit
   (must be registered on that category before `put_units/2`). `default:`
   may not include a denominator coefficient (`L | 100 km`). Derived
-  categories also take `formula:` over base category names, and optional
-  `identity:` — a unit formula of the base-hub product. A matching identity
-  unit must still be registered before `put_units/2`. `identity:` is
-  rejected on base categories. `default_result_unit:` is rejected; use
+  categories also take `formula:` over category names. An all-base formula
+  stores the reduced vector and may take `identity:` — a unit formula of
+  the base-hub product. A formula that names a derived category stores
+  that category's atom and rejects `identity:`. A matching identity unit
+  must still be registered before `put_units/2`: the base-hub product, or
+  a per-1 unit of the nominal dimension when the formula names a derived
+  category. `identity:` is rejected on base categories.
+  `default_result_unit:` is rejected; use
   `default:`. `additive:` defaults to `true`; offset conversions
   (`to_default(0) ≠ 0`) and reciprocal conversions (`k / value`) require
   `additive: false`.
@@ -150,6 +159,25 @@ defmodule Elex.Units.Catalog do
     Enum.find_value(catalog.categories, :error, fn {name, entry} ->
       if Map.get(entry, :dim, %{name => 1}) == dim, do: {:ok, name}
     end)
+  end
+
+  @doc """
+  Returns true when `left` and `right` are the same category for arithmetic.
+
+  Each side is reduced with `Unit.reduce_nominal_power/2`. The dimensions
+  match when those reduced powers are equal, including when the unreduced
+  vectors differ (`%{volume: 2}` and `%{length: 6}`). A mixed vector such as
+  `%{volume: 1, length: -1}` is left unchanged.
+  """
+  @spec same_category_dim?(
+          t(),
+          %{optional(atom()) => integer()},
+          %{optional(atom()) => integer()}
+        ) :: boolean()
+  def same_category_dim?(%__MODULE__{} = catalog, left, right)
+      when is_map(left) and is_map(right) do
+    Elex.Unit.reduce_nominal_power(catalog, left) ==
+      Elex.Unit.reduce_nominal_power(catalog, right)
   end
 
   @doc """
@@ -302,9 +330,11 @@ defmodule Elex.Units.Catalog do
 
   @doc """
   Returns `:ok` when every category `default:` hub is registered on that
-  category and every derived category has a base-hub identity (`default:`
-  name parses to the identity monomial, or a matching unit name).
-  `identity:` does not substitute for that unit.
+  category and every derived category has an identity unit. An all-base
+  formula needs a unit whose name is the base-hub product. A formula that
+  names a derived category needs a registered per-1 unit whose nominal
+  dimension equals the stored vector. `identity:` does not substitute for
+  that unit.
   """
   @spec validate(t()) :: :ok | {:error, String.t()}
   def validate(%__MODULE__{} = catalog) do
@@ -337,16 +367,58 @@ defmodule Elex.Units.Catalog do
   end
 
   defp validate_derived_identity(catalog, name, entry) do
-    identity = identity_monomial(catalog, entry)
+    case identity_monomial(catalog, entry) do
+      :names_derived ->
+        validate_nominal_identity(catalog, name, entry)
 
-    if derived_identity?(entry, identity) do
+      identity ->
+        if derived_identity?(entry, identity) do
+          :ok
+        else
+          example = format_identity_example(identity)
+
+          {:error,
+           "derived category :#{name} needs a registered unit matching the base hubs (e.g. \"#{example}\")"}
+        end
+    end
+  end
+
+  defp validate_nominal_identity(catalog, name, entry) do
+    if nominal_per_one_unit?(catalog, name, entry) do
       :ok
     else
-      example = format_identity_example(identity)
+      example = Elex.Dimension.formula(%Elex.Dimension{monomial: entry.dim})
 
       {:error,
-       "derived category :#{name} needs a registered unit matching the base hubs (e.g. \"#{example}\")"}
+       "derived category :#{name} needs a registered per-1 unit whose dimension is #{example}"}
     end
+  end
+
+  defp nominal_per_one_unit?(catalog, category, entry) do
+    Enum.any?(entry.units, fn {unit_name, _unit} ->
+      nominal_per_one?(catalog, category, unit_name, entry.dim)
+    end)
+  end
+
+  defp nominal_per_one?(catalog, category, unit_name, dim) do
+    case Formula.parse(unit_name) do
+      {:ok, monomial} ->
+        other_category_formula?(catalog, category, monomial) and
+          unit_dim(catalog, monomial) == {:ok, dim}
+
+      _ ->
+        false
+    end
+  end
+
+  defp other_category_formula?(catalog, category, monomial) do
+    Enum.all?(monomial, fn {symbol, _exponent} ->
+      case category_for_unit(catalog, symbol) do
+        {:ok, ^category} -> false
+        {:ok, _other} -> true
+        :error -> false
+      end
+    end)
   end
 
   defp derived_identity?(entry, identity) do
@@ -364,12 +436,20 @@ defmodule Elex.Units.Catalog do
   defp identity_monomial(catalog, entry) do
     {:ok, monomial} = Formula.parse(entry.formula)
 
-    Enum.reduce(monomial, %{}, fn {component, exponent}, acc ->
-      {:ok, category} = fetch_base_category(catalog, component)
-      hub = catalog.categories[category].default
-      Map.update(acc, hub, exponent, &(&1 + exponent))
+    Enum.reduce_while(monomial, {:ok, %{}}, fn {component, exponent}, {:ok, acc} ->
+      case fetch_base_category(catalog, component) do
+        {:ok, category} ->
+          hub = catalog.categories[category].default
+          {:cont, {:ok, Map.update(acc, hub, exponent, &(&1 + exponent))}}
+
+        {:error, :derived, _category} ->
+          {:halt, :names_derived}
+      end
     end)
-    |> drop_zero_exponents()
+    |> case do
+      {:ok, acc} -> drop_zero_exponents(acc)
+      :names_derived -> :names_derived
+    end
   end
 
   defp identity_unit?(units, identity) do
@@ -379,11 +459,15 @@ defmodule Elex.Units.Catalog do
   defp formula_identity_for_entry(_catalog, entry) when not is_map_key(entry, :formula), do: nil
 
   defp formula_identity_for_entry(catalog, entry) do
-    identity = identity_monomial(catalog, entry)
+    case identity_monomial(catalog, entry) do
+      identity when is_map(identity) ->
+        case Map.fetch(entry, :identity) do
+          {:ok, formula} -> match_identity_unit(entry.units, identity) || {formula, identity}
+          :error -> match_identity_unit(entry.units, identity)
+        end
 
-    case Map.fetch(entry, :identity) do
-      {:ok, formula} -> match_identity_unit(entry.units, identity) || {formula, identity}
-      :error -> match_identity_unit(entry.units, identity)
+      :names_derived ->
+        nil
     end
   end
 
@@ -439,6 +523,11 @@ defmodule Elex.Units.Catalog do
   They must match `^[A-Za-z°µμΩΩ][A-Za-z0-9_ΩΩ]*$` and be unique catalog-wide
   against unit names and other aliases. `default:` must be a canonical
   unit name, not an alias.
+
+  `derivable: false` stores the flag on that catalog entry so a formula
+  keeps the category atom (`volume` for litre). Omitted and `derivable: true`
+  store no key and expand a derived category to its `:dim`. Aliases use the
+  canonical entry. The flag is not a field of `%Elex.Unit{}`.
   """
   @spec add_unit(t(), atom(), String.t()) :: {:ok, t()} | {:error, String.t()}
   @spec add_unit(t(), atom(), String.t(), String.t() | keyword()) ::
@@ -465,7 +554,8 @@ defmodule Elex.Units.Catalog do
         {:error, "unknown category :#{category}"}
 
       {:ok, category_entry} ->
-        with :ok <- validate_unit_name(name, category_entry),
+        with {:ok, derivable} <- derivable_option(opts),
+             :ok <- validate_unit_name(name, category_entry),
              :ok <- reject_scaled_component_formula(catalog, name),
              :ok <- reject_duplicate_name(catalog, name),
              :ok <- validate_aliases(catalog, name, aliases),
@@ -477,7 +567,7 @@ defmodule Elex.Units.Catalog do
              :ok <- reject_opaque_reciprocal(category_entry, name, ast),
              :ok <- reject_component_scale_mismatch(catalog, category_entry, name, ast),
              :ok <- reject_duplicate_scale(catalog, category_entry, name) do
-          unit = unit_entry(to_default, ast, inverse, aliases, reciprocal_inverse)
+          unit = unit_entry(to_default, ast, inverse, aliases, reciprocal_inverse, derivable)
           units = Map.put(category_entry.units, name, unit)
           categories = Map.put(catalog.categories, category, %{category_entry | units: units})
           {:ok, %{catalog | categories: categories}}
@@ -590,18 +680,30 @@ defmodule Elex.Units.Catalog do
         {:ok, nil}
 
       {:ok, identity} ->
-        expected = identity_monomial(catalog, %{formula: formula})
+        match_supplied_identity(catalog, name, formula, identity)
+    end
+  end
 
-        case Formula.parse(identity) do
-          {:ok, ^expected} ->
-            {:ok, identity}
+  defp match_supplied_identity(catalog, name, formula, identity) do
+    case identity_monomial(catalog, %{formula: formula}) do
+      :names_derived ->
+        {:error, "identity: is not allowed when :#{name} formula names a derived category"}
 
-          {:error, reason} ->
-            {:error, reason}
+      expected ->
+        parse_matching_identity(name, identity, expected)
+    end
+  end
 
-          _other ->
-            {:error, "identity '#{identity}' does not match the base-hub product of :#{name}"}
-        end
+  defp parse_matching_identity(name, identity, expected) do
+    case Formula.parse(identity) do
+      {:ok, ^expected} ->
+        {:ok, identity}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      _other ->
+        {:error, "identity '#{identity}' does not match the base-hub product of :#{name}"}
     end
   end
 
@@ -714,30 +816,55 @@ defmodule Elex.Units.Catalog do
   end
 
   defp compare_expanded_component_scale(catalog, category_entry, name, monomial, per, ast) do
-    case component_default_monomial(catalog, monomial) do
-      {:ok, expanded} ->
-        compare_if_same_default(expanded, catalog, category_entry, name, monomial, per, ast)
+    hub = default_unit_monomial(category_entry.default)
 
-      :skip ->
+    case {nominal_component_monomial(catalog, monomial), nominal_component_monomial(catalog, hub)} do
+      {{:ok, nominal}, {:ok, nominal}} ->
+        compare_matching_component_scale(catalog, hub, name, monomial, per, ast)
+
+      _ ->
         :ok
     end
   end
 
-  defp compare_if_same_default(expanded, catalog, category_entry, name, monomial, per, ast) do
-    if expanded == default_unit_monomial(category_entry.default) do
-      compare_matching_component_scale(catalog, name, monomial, per, ast)
-    else
-      :ok
-    end
-  end
-
-  defp compare_matching_component_scale(catalog, name, monomial, per, ast) do
-    case {component_to_default_factor(catalog, monomial), conversion_at_one(ast)} do
+  defp compare_matching_component_scale(catalog, hub, name, monomial, per, ast) do
+    case {component_factor_ratio(catalog, monomial, hub), conversion_at_one(ast)} do
       {:skip, _} ->
         :ok
 
       {{:ok, expected}, {:ok, actual}} ->
         matching_component_scale_result(name, Decimal.div(expected, Decimal.new(per)), actual)
+    end
+  end
+
+  defp component_factor_ratio(catalog, monomial, hub) do
+    case {component_to_default_factor(catalog, monomial),
+          component_to_default_factor(catalog, hub)} do
+      {{:ok, unit_factor}, {:ok, hub_factor}} ->
+        {:ok, Decimal.div(unit_factor, hub_factor)}
+
+      _ ->
+        :skip
+    end
+  end
+
+  defp nominal_component_monomial(catalog, monomial) do
+    Enum.reduce_while(monomial, {:ok, %{}}, fn {symbol, exponent}, {:ok, acc} ->
+      case category_for_unit(catalog, symbol) do
+        :error ->
+          {:halt, :skip}
+
+        {:ok, category} ->
+          piece = nominal_symbol_monomial(catalog, category, symbol)
+          {:cont, {:ok, combine_dim(acc, scale_dim(piece, exponent))}}
+      end
+    end)
+  end
+
+  defp nominal_symbol_monomial(catalog, category, symbol) do
+    case fetch_unit(catalog, symbol) do
+      {:ok, %{derivable: false}} -> %{category => 1}
+      _ -> default_unit_monomial(categories(catalog)[category])
     end
   end
 
@@ -769,19 +896,6 @@ defmodule Elex.Units.Catalog do
     else
       {:error, "unit '#{name}' conversion does not match the scale of its component units"}
     end
-  end
-
-  defp component_default_monomial(catalog, monomial) do
-    Enum.reduce_while(monomial, {:ok, %{}}, fn {symbol, exponent}, {:ok, acc} ->
-      case category_for_unit(catalog, symbol) do
-        :error ->
-          {:halt, :skip}
-
-        {:ok, category} ->
-          default = categories(catalog)[category]
-          {:cont, {:ok, combine_dim(acc, scale_dim(default_unit_monomial(default), exponent))}}
-      end
-    end)
   end
 
   defp default_unit_monomial(default) when is_binary(default) do
@@ -831,16 +945,19 @@ defmodule Elex.Units.Catalog do
 
   defp category_formula_dim(catalog, monomial) do
     Enum.reduce_while(monomial, {:ok, %{}}, fn {name, exponent}, {:ok, acc} ->
-      case fetch_base_category(catalog, name) do
+      case fetch_category(catalog, name) do
         {:ok, category} ->
           {:cont, {:ok, combine_dim(acc, %{category => exponent})}}
-
-        {:error, :derived, category} ->
-          {:halt, {:error, "formula may only use base categories; :#{category} is derived"}}
 
         :error ->
           {:halt, {:error, "unknown category :#{name}"}}
       end
+    end)
+  end
+
+  defp fetch_category(catalog, name) do
+    Enum.find_value(catalog.categories, :error, fn {category, _entry} ->
+      if Atom.to_string(category) == name, do: {:ok, category}
     end)
   end
 
@@ -926,10 +1043,17 @@ defmodule Elex.Units.Catalog do
   defp lookup_symbol_dim(catalog, symbol) do
     case category_for_unit(catalog, symbol) do
       {:ok, category} ->
-        {:ok, category_dim(catalog, category)}
+        {:ok, symbol_dim(catalog, category, symbol)}
 
       :error ->
         {:error, "unknown unit '#{symbol}'"}
+    end
+  end
+
+  defp symbol_dim(catalog, category, symbol) do
+    case fetch_unit(catalog, symbol) do
+      {:ok, %{derivable: false}} -> %{category => 1}
+      _ -> category_dim(catalog, category)
     end
   end
 
@@ -965,7 +1089,15 @@ defmodule Elex.Units.Catalog do
     end
   end
 
-  defp unit_entry(to_default, ast, inverse, aliases, reciprocal_inverse) do
+  defp derivable_option(opts) do
+    case Keyword.get(opts, :derivable, true) do
+      true -> {:ok, true}
+      false -> {:ok, false}
+      _ -> {:error, "derivable: must be a boolean"}
+    end
+  end
+
+  defp unit_entry(to_default, ast, inverse, aliases, reciprocal_inverse, derivable) do
     unit = %{
       to_default: to_default,
       to_default_ast: ast,
@@ -973,7 +1105,8 @@ defmodule Elex.Units.Catalog do
     }
 
     unit = if aliases == [], do: unit, else: Map.put(unit, :aliases, aliases)
-    if reciprocal_inverse, do: Map.put(unit, :inverse, true), else: unit
+    unit = if reciprocal_inverse, do: Map.put(unit, :inverse, true), else: unit
+    if derivable, do: unit, else: Map.put(unit, :derivable, false)
   end
 
   defp validate_aliases(_catalog, _name, []), do: :ok

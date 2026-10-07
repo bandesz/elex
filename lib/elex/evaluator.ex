@@ -508,20 +508,11 @@ defmodule Elex.Evaluator do
   end
 
   defp formula_target_dim(monomial, catalog) do
-    Enum.reduce_while(monomial, {:ok, %{}}, fn {symbol, exponent}, {:ok, acc} ->
-      case Catalog.category_for_unit(catalog, symbol) do
-        {:ok, category} ->
-          dim = Map.get(catalog.categories[category], :dim, %{category => 1})
-          {:cont, {:ok, combine_monomials(acc, scale_dim(dim, exponent))}}
-
-        :error ->
-          {:halt, {:error, "unknown unit '#{symbol}'"}}
-      end
-    end)
+    Catalog.unit_dim(catalog, monomial)
   end
 
   defp matching_target_dim(from_dim, target_dim, to_unit, catalog, style) do
-    if from_dim == target_dim do
+    if same_reduced_dim?(from_dim, target_dim, catalog) do
       :ok
     else
       {:error,
@@ -533,6 +524,12 @@ defmodule Elex.Evaluator do
        )}
     end
   end
+
+  defp same_reduced_dim?(left, right, %Catalog{} = catalog) do
+    Unit.reduce_nominal_power(catalog, left) == Unit.reduce_nominal_power(catalog, right)
+  end
+
+  defp same_reduced_dim?(left, right, _catalog), do: left == right
 
   defp dim_label(dim, _catalog) when map_size(dim) == 0, do: label(:decimal)
 
@@ -979,12 +976,17 @@ defmodule Elex.Evaluator do
 
   defp derived_alias_hub(symbol, ctx) do
     with {:ok, category} <- Catalog.category_for_unit(ctx.units, symbol),
+         true <- derivable_symbol?(ctx.units, symbol),
          {_name, _identity} <- Catalog.formula_identity(ctx.units, category) do
       {hub_value, hub_mono} = named_to_base_hub(Decimal.new(1), symbol, ctx)
       {:ok, hub_value, hub_mono}
     else
       _ -> :none
     end
+  end
+
+  defp derivable_symbol?(catalog, symbol) do
+    not match?({:ok, %{derivable: false}}, Catalog.fetch_unit(catalog, symbol))
   end
 
   defp align_right_to_left(left_unit, %Quantity{} = right, ctx) do
@@ -1023,12 +1025,23 @@ defmodule Elex.Evaluator do
   defp quantity_or_decimal(value, monomial) when map_size(monomial) == 0, do: value
   defp quantity_or_decimal(value, monomial), do: quantity(value, Unit.from_monomial(monomial))
 
-  defp same_category_units?(left, right, ctx) do
-    case {unit_dim(left, ctx), unit_dim(right, ctx)} do
-      {{:ok, dim}, {:ok, dim}} -> true
-      _ -> false
+  defp same_category_units?(left, right, %{units: %Catalog{} = catalog} = ctx) do
+    case {nominal_unit_dim(left, ctx), nominal_unit_dim(right, ctx)} do
+      {{:ok, left_dim}, {:ok, right_dim}} ->
+        Catalog.same_category_dim?(catalog, left_dim, right_dim)
+
+      _ ->
+        false
     end
   end
+
+  defp same_category_units?(_left, _right, _ctx), do: false
+
+  defp nominal_unit_dim(unit, %{units: %Catalog{} = catalog}) do
+    Catalog.unit_dim(catalog, to_unit(unit))
+  end
+
+  defp nominal_unit_dim(_unit, _ctx), do: :error
 
   defp unit_dim(unit, ctx) do
     formula_target_dim(unit_monomial(unit), ctx.units)
@@ -1068,12 +1081,6 @@ defmodule Elex.Evaluator do
     monomial
     |> Map.new(fn {symbol, n} -> {symbol, n * exponent} end)
     |> Map.reject(fn {_symbol, n} -> n == 0 end)
-  end
-
-  defp scale_dim(dim, exponent) do
-    dim
-    |> Map.new(fn {category, n} -> {category, n * exponent} end)
-    |> Map.reject(fn {_category, n} -> n == 0 end)
   end
 
   defp integer_pow(_base, 0), do: Decimal.new(1)
@@ -1139,7 +1146,7 @@ defmodule Elex.Evaluator do
   defp conversion_dim(unit, ctx) do
     case inverse_formula(unit, ctx) do
       {category, _name, _entry} -> {:ok, category_dim(category, ctx)}
-      nil -> unit_dim(unit, ctx)
+      nil -> nominal_unit_dim(unit, ctx)
     end
   end
 
